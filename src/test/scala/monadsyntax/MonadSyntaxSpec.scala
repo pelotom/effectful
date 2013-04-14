@@ -2,21 +2,19 @@ package monadsyntax
 
 import scala.language.higherKinds
 
-import MonadSyntax._
-
 import scalaz._
 import Scalaz._
 
 import org.scalacheck.{Properties, Arbitrary}
 import org.scalacheck.Prop._
 
-object MonadSyntaxSpec extends Properties("MonadSyntax") {
+object MonadSyntaxSpec extends Properties("monad-syntax") {
   
-  property("(monadically . extract) == id") = {
+  property("(monadically . unwrap) == id") = {
     def test[M[_], A](implicit 
       m: Monad[M], 
       a: Arbitrary[M[A]]) = forAll { (ma: M[A]) => 
-        ma == monadically(extract(ma))
+        ma == monadically(unwrap(ma))
       }
     // TODO make a meta-QuickCheck that can generate types!
     test[List, Int] &&
@@ -45,7 +43,7 @@ object MonadSyntaxSpec extends Properties("MonadSyntax") {
       amb: Arbitrary[M[B]]) = forAll { (ma: M[A], mb: M[B]) =>
         
         val value = monadically {
-          (extract(ma), extract(mb))
+          (unwrap(ma), unwrap(mb))
         }
         
         val expected = for {
@@ -60,8 +58,6 @@ object MonadSyntaxSpec extends Properties("MonadSyntax") {
     test[Option, Boolean, Int]
   }
   
-
-  
   property("nested blocks") = {
     def test[M[_], A, B](implicit 
       m: Monad[M], 
@@ -69,9 +65,9 @@ object MonadSyntaxSpec extends Properties("MonadSyntax") {
       amb: Arbitrary[M[B]]) = forAll { (ma: M[A], mb: M[B]) =>
         
         val value = monadically {
-          val ma2 = monadically { (); extract(ma) }
-          val mb2 = monadically { (); extract(mb) }
-          (extract(ma2), extract(mb2))
+          val ma2 = monadically { (); unwrap(ma) }
+          val mb2 = monadically { (); unwrap(mb) }
+          (unwrap(ma2), unwrap(mb2))
         }
         
         val expected = for {
@@ -94,10 +90,10 @@ object MonadSyntaxSpec extends Properties("MonadSyntax") {
       al: Arbitrary[M[A]]) = forAll { (test: M[Boolean], left: M[A], right: M[A]) =>
         
         val value = monadically {
-          if (extract(test)) 
-            extract(left)
+          if (unwrap(test)) 
+            unwrap(left)
           else 
-            extract(right)
+            unwrap(right)
         }
         
         val expected = for {
@@ -120,8 +116,8 @@ object MonadSyntaxSpec extends Properties("MonadSyntax") {
       ar: Arbitrary[A]) = forAll { (test: M[Boolean], left: M[A], right: A) =>
         
         val value = monadically {
-          if (extract(test)) 
-            extract(left)
+          if (unwrap(test)) 
+            unwrap(left)
           else 
             right
         }
@@ -146,8 +142,8 @@ object MonadSyntaxSpec extends Properties("MonadSyntax") {
       ar: Arbitrary[A]) = forAll { (test: M[Boolean], left: M[A], result: A) =>
         
         val value = monadically {
-          if (extract(test)) 
-            extract(left)
+          if (unwrap(test)) 
+            unwrap(left)
           result
         }
         
@@ -171,11 +167,11 @@ object MonadSyntaxSpec extends Properties("MonadSyntax") {
       ama: Arbitrary[M[A]]) = forAll { (test1: M[Boolean], choice1: M[A], test2: M[Boolean], choice2: A, choice3: M[A]) =>
         
         val value = monadically {
-          if (extract(test1)) 
-            extract(choice1)
-          else if (extract(test2))
+          if (unwrap(test1)) 
+            unwrap(choice1)
+          else if (unwrap(test2))
             choice2
-          else extract(choice3)
+          else unwrap(choice3)
         }
         
         val expected = for {
