@@ -125,7 +125,14 @@ private abstract class Rewriter {
       val wrapped1 = transform(branch1)
       val wrapped2 = transform(branch2)
       extractUnwrap(condBinds, If(newCond, wrapped1, wrapped2))
-    
+      
+    case Match(obj, cases) =>
+      val (objBinds, newObj) = extractBindings(obj)
+      val wrappedCases = cases map { case CaseDef(pat, guard, body) =>
+        CaseDef(pat, guard, transform(body)) // TODO handle unwraps in guard
+      }
+      extractUnwrap(objBinds, Match(newObj, wrappedCases))
+      
     case _ => (Nil, tree)
   }
 

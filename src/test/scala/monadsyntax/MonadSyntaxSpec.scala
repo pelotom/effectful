@@ -213,8 +213,37 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       
         value == expected
       }
-    
+      
     test[List, Int, Char] &&
     test[Option, Boolean, Int]
+  }
+      
+  property("simple match expression") = {
+    
+    def test[M[_], A](implicit 
+      m: Monad[M],
+      at: Arbitrary[M[List[A]]], 
+      aa: Arbitrary[M[A]]) = forAll { (matchObj: M[List[A]], ifNil: M[A]) =>
+        
+        val value: M[A] = monadically {
+          unwrap(matchObj) match {
+            case Nil => unwrap(ifNil)
+            case a :: _ => a
+          }
+        }
+        
+        val expected: M[A] = for {
+          o <- matchObj
+          result <- o match {
+            case Nil => ifNil
+            case a :: _ => a.pure[M]
+          }
+        } yield result
+        
+        value == expected
+      }
+      
+    test[List, Int] &&
+    test[Option, Boolean]
   }
 }
