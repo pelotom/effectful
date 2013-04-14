@@ -8,21 +8,21 @@ import scalaz._
 
 object MonadSyntax {
   
-  val WRAP = "monadically"
-  val UNWRAP = "extract"
+  private[monadsyntax] val MONADICALLY = "monadically"
+  private[monadsyntax] val EXTRACT = "extract"
   
   def monadically[M[_], A](expr:A): M[A] = macro monadicallyImpl[M, A]
+  
+  @deprecated(s"`$EXTRACT` must be enclosed in a `$MONADICALLY` block", "0.1")
+  def extract[M[_], A](expr:M[A]):A = sys.error(s"$EXTRACT was not macro'ed away!")
   
   def monadicallyImpl[M[_], A](c1: Context)(expr:c1.Expr[A]): c1.Expr[M[A]] = {
     val helper = new { val c: c1.type = c1 } with Helper
     c1.Expr(helper.generate(expr.tree))
   }
-  
-  @deprecated(s"`$UNWRAP` must be enclosed in an `$WRAP` block", "0.1")
-  def extract[M[_], A](expr:M[A]):A = sys.error(s"$UNWRAP was not macro'ed away!")
 }
 
-abstract class Helper {
+private abstract class Helper {
 
   val c: Context
   
@@ -65,8 +65,8 @@ abstract class Helper {
     newTree
   }
   
-  def wrapSymbol = typeOf[MonadSyntax.type].member(newTermName(WRAP))
-  def unwrapSymbol = typeOf[MonadSyntax.type].member(newTermName(UNWRAP))
+  def wrapSymbol = typeOf[MonadSyntax.type].member(newTermName(MONADICALLY))
+  def unwrapSymbol = typeOf[MonadSyntax.type].member(newTermName(EXTRACT))
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
   
@@ -110,7 +110,6 @@ abstract class Helper {
       val wrapped2 = transform(branch2)
       val (List(branchBind), ident) = extractUnwrap(If(newCond, wrapped1, wrapped2))
       (condBinds :+ branchBind, ident)
-      
       
     case _ => (Nil, tree)
   }
