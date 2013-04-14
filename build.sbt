@@ -2,15 +2,11 @@ scalaVersion := "2.10.1"
 
 organization := "com.pelotom"
 
-name := "monadblocks"
+name := "monad-syntax"
 
 version := "0.1"
 
-libraryDependencies <++= (scalaVersion) {
-  sv => Seq(
-    "org.scala-lang" % "scala-reflect" % sv
-  )
-}
+libraryDependencies <++= (scalaVersion) { sv => Seq("org.scala-lang" % "scala-reflect" % sv) }
 
 libraryDependencies += "org.scalaz" %% "scalaz-core" % "[7,8)"
 
@@ -20,6 +16,6 @@ scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint", "-feature")
 
 description := "An alternative to for-comprehensions for succinctly specifying monadic computations"
 
-homepage := Some(url("http://github.com/pelotom/monadblocks"))
+homepage := Some(url("http://github.com/pelotom/monad-syntax"))
 
 startYear := Some(2013)

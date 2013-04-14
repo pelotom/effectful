@@ -1,8 +1,8 @@
-package monadblocks
+package monadsyntax
 
 import scala.language.higherKinds
 
-import MonadBlocks._
+import MonadSyntax._
 
 import scalaz._
 import Scalaz._
@@ -10,7 +10,7 @@ import Scalaz._
 import org.scalacheck.{Properties, Arbitrary}
 import org.scalacheck.Prop._
 
-object MonadBlockSpec extends Properties("MonadBlock") {
+object MonadSyntaxSpec extends Properties("MonadSyntax") {
   
   property("(monadically . extract) == id") = {
     def test[M[_], A](implicit 

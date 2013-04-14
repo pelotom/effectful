@@ -1,4 +1,4 @@
-package monadblocks
+package monadsyntax
 
 import language.experimental.macros
 import scala.language.higherKinds
@@ -6,7 +6,7 @@ import scala.reflect.macros.Context
 
 import scalaz._
 
-object MonadBlocks {
+object MonadSyntax {
   
   val WRAP = "monadically"
   val UNWRAP = "extract"
@@ -28,7 +28,7 @@ abstract class Helper {
   
   import c.universe._
   
-  import MonadBlocks._
+  import MonadSyntax._
   
   val TMPVAR_PREFIX = "$tmc$"
   
@@ -65,8 +65,8 @@ abstract class Helper {
     newTree
   }
   
-  def wrapSymbol = typeOf[MonadBlocks.type].member(newTermName(WRAP))
-  def unwrapSymbol = typeOf[MonadBlocks.type].member(newTermName(UNWRAP))
+  def wrapSymbol = typeOf[MonadSyntax.type].member(newTermName(WRAP))
+  def unwrapSymbol = typeOf[MonadSyntax.type].member(newTermName(UNWRAP))
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
   
