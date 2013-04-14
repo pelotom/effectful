@@ -12,13 +12,9 @@ libraryDependencies <++= (scalaVersion) {
   )
 }
 
-libraryDependencies += "com.novocode" % "junit-interface" % "0.9" % "test"
-
-libraryDependencies += "junit" % "junit-dep" % "4.10" % "test"
-
 libraryDependencies += "org.scalaz" %% "scalaz-core" % "[7,8)"
 
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s")
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"
 
 scalacOptions ++= Seq("-deprecation", "-unchecked", "-Xlint", "-feature")
 

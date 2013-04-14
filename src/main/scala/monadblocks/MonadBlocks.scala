@@ -8,18 +8,18 @@ import scalaz._
 
 object MonadBlocks {
   
-  val WRAP = "wrap"
-  val UNWRAP = "unwrap"
+  val WRAP = "monadically"
+  val UNWRAP = "extract"
   
-  def wrap[M[_], A](expr:A): M[A] = macro wrapImpl[M, A]
+  def monadically[M[_], A](expr:A): M[A] = macro monadicallyImpl[M, A]
   
-  def wrapImpl[M[_], A](c1: Context)(expr:c1.Expr[A]): c1.Expr[M[A]] = {
+  def monadicallyImpl[M[_], A](c1: Context)(expr:c1.Expr[A]): c1.Expr[M[A]] = {
     val helper = new { val c: c1.type = c1 } with Helper
     c1.Expr(helper.generate(expr.tree))
   }
   
   @deprecated(s"`$UNWRAP` must be enclosed in an `$WRAP` block", "0.1")
-  def unwrap[M[_], A](expr:M[A]):A = sys.error(s"$UNWRAP was not macro'ed away!")
+  def extract[M[_], A](expr:M[A]):A = sys.error(s"$UNWRAP was not macro'ed away!")
 }
 
 abstract class Helper {
@@ -54,9 +54,9 @@ abstract class Helper {
   }
   
   def generate(tree: Tree): Tree = {
-    var newTree = transform(tree)
+    var newTree = c.resetLocalAttrs(tree)
+    newTree = transform(newTree)
     // println(show(newTree))
-    newTree = clearLocalSymbols(newTree)
     newTree = c.typeCheck(newTree)//, WildcardType, true)
     val TypeRef(pre, sym, args) = c.macroApplication.tpe
     if (sym == typeOf[Nothing].typeSymbol)
@@ -69,19 +69,6 @@ abstract class Helper {
   def unwrapSymbol = typeOf[MonadBlocks.type].member(newTermName(UNWRAP))
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
-  
-  def clearLocalSymbols(tree: Tree): Tree = {
-    new Transformer {
-      override def transform(tree: Tree) = tree match {
-        case Ident(name) 
-          if !name.toString.startsWith(TMPVAR_PREFIX) 
-          && tree.symbol != NoSymbol 
-          && tree.symbol.isLocal => 
-            Ident(name)
-        case tree => super.transform(tree)
-      }
-    }.transform(tree)
-  }
   
   type BindGroup = (List[(TermName, Tree)], Tree)
   
@@ -112,6 +99,11 @@ abstract class Helper {
       val (binds, newRhs) = extractBindings(rhs)
       (binds, ValDef(mod, lhs, typ, newRhs))
       
+    case Block(stats, expr) => 
+      val (binds, newBlock) = extractBlock(stats :+ expr)
+      val (List(blockBind), ident) = extractUnwrap(newBlock)
+      (binds :+ blockBind, ident)
+
     case If(cond, branch1, branch2) =>
       val (condBinds, newCond) = extractBindings(cond)
       val wrapped1 = transform(branch1)
@@ -119,10 +111,6 @@ abstract class Helper {
       val (List(branchBind), ident) = extractUnwrap(If(newCond, wrapped1, wrapped2))
       (condBinds :+ branchBind, ident)
       
-    case Block(stats, expr) => 
-      val (binds, newBlock) = extractBlock(stats :+ expr)
-      val (List(blockBind), ident) = extractUnwrap(newBlock)
-      (binds :+ blockBind, ident)
       
     case _ => (Nil, tree)
   }
