@@ -10,7 +10,10 @@ import scalaz._
 import Scalaz._
 import monadsyntax.{monadically, unwrap}
 
-val foo = monadically(unwrap(List(1,2,3)) + unwrap(List(2,3)) > 4)
+val xs = List(1,2,3)
+val ys = List(2,3)
+
+val foo = monadically { unwrap(xs) + unwrap(ys) > 4 }
 
 // foo == List(false, false, false, true, true, true)
 ```
