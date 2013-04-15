@@ -5,55 +5,65 @@ Monads are sometimes referred to as "programmable semicolons", because they allo
 
 ## Quick start
 
-    import scalaz._
-    import Scalaz._
-    import monadsyntax._
-    
-    val foo = monadically(unwrap(List(1,2,3)) + unwrap(List(2,3)) > 4)
-    
-    // foo == List(false, false, false, true, true, true)
+```scala
+import scalaz._
+import Scalaz._
+import monadsyntax._
+
+val foo = monadically(unwrap(List(1,2,3)) + unwrap(List(2,3)) > 4)
+
+// foo == List(false, false, false, true, true, true)
+```
 
 ## Motivation
 
 In Scala we have `for`-comprehensions as an imperative-looking syntax for writing monadic code, e.g.
 
-    for {
-      x <- foo
-      y <- bar(x)
-      z <- baz
-    } yield (y, z)
+```scala
+for {
+  x <- foo
+  y <- bar(x)
+  z <- baz
+} yield (y, z)
+```
 
 Each monadic assignment `a <- ma` _unwraps_ a pure value `a: A` from a monadic value `ma: M[A]` so that it can be used later in the computation. But this is a little less convenient than one might hope--frequently we would like to make use of an unwrapped value without having to explicitly name it. With monad syntax we can write it _inline_, like so:
 
-    monadically { (unwrap(bar(unwrap(foo))), unwrap(baz)) }
+```scala
+monadically { (unwrap(bar(unwrap(foo))), unwrap(baz)) }
+```
 
 ### Conditionals
 
 Writing conditional expressions in `for` comprehensions can get hairy fast:
 
+```scala
+for {
+  x <- foo
+  result <- if (x) {
     for {
-      x <- foo
-      result <- if (x) {
-        for {
-          a1 <- bar
-          a2 <- baz(a1)
-        } yield a2
-      } else {
-        for {
-          b1 <- boz
-          b2 <- biz
-        } yield b1 * b2
-      }
-    } yield result
+      a1 <- bar
+      a2 <- baz(a1)
+    } yield a2
+  } else {
+    for {
+      b1 <- boz
+      b2 <- biz
+    } yield b1 * b2
+  }
+} yield result
+```
 
 With monad syntax we can write this as:
 
-    monadically {
-      if (unwrap(foo)) 
-        unwrap(baz(unwrap(bar)))
-      else 
-        unwrap(unwrap(boz) * unwrap(biz))
-    }
+```scala
+monadically {
+  if (unwrap(foo)) 
+    unwrap(baz(unwrap(bar)))
+  else 
+    unwrap(unwrap(boz) * unwrap(biz))
+}
+```
 
 ## How it works
     
