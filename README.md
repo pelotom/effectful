@@ -8,7 +8,7 @@ Monads are sometimes referred to as "programmable semicolons", because they allo
 ```scala
 import scalaz._
 import Scalaz._
-import monadsyntax._
+import monadsyntax.{monadically, unwrap}
 
 val foo = monadically(unwrap(List(1,2,3)) + unwrap(List(2,3)) > 4)
 
