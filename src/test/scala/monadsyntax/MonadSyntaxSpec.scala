@@ -190,4 +190,31 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[List, Int, Char] &&
     test[Option, Boolean, Int]
   }
+  
+  property("unwrap outside conditional") = {
+    def test[M[_], A, B](implicit 
+      m: Monad[M], 
+      at: Arbitrary[M[Boolean]], 
+      al: Arbitrary[M[A]]) = forAll { (test: M[Boolean], left: M[A], right: M[A]) =>
+      
+        val value = monadically {
+          unwrap { 
+            if (unwrap(test)) 
+              left
+            else 
+              right
+          }
+        }
+      
+        val expected = for {
+          t <- test
+          result <- if (t) left else right
+        } yield result
+      
+        value == expected
+      }
+    
+    test[List, Int, Char] &&
+    test[Option, Boolean, Int]
+  }
 }

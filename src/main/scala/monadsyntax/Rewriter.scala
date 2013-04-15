@@ -80,11 +80,13 @@ private abstract class Rewriter {
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
 
+  type Binding = (TermName, Tree)
+
   /**
    * A `BindGroup` represents a sequence of monadic bindings and the Tree in which they
    * are to be bound.
    */
-  type BindGroup = (List[(TermName, Tree)], Tree)
+  type BindGroup = (List[Binding], Tree)
 
   /**
    * - Takes a tree for an expression of type A
@@ -98,7 +100,8 @@ private abstract class Rewriter {
   
     case Apply(fun, args) => 
       if (isUnwrap(fun)) {
-        extractUnwrap(args(0))
+        val (binds, newArg) = extractBindings(args(0))
+        extractUnwrap(binds, newArg)
       } else {
         val (funBinds, newFun) = extractBindings(fun)
         val (argBindss, newArgs) = (args map extractBindings).unzip
@@ -115,26 +118,25 @@ private abstract class Rewriter {
     
     case Block(stats, expr) => 
       val (binds, newBlock) = extractBlock(stats :+ expr)
-      val (List(blockBind), ident) = extractUnwrap(newBlock)
-      (binds :+ blockBind, ident)
+      extractUnwrap(binds, newBlock)
 
     case If(cond, branch1, branch2) =>
       val (condBinds, newCond) = extractBindings(cond)
       val wrapped1 = transform(branch1)
       val wrapped2 = transform(branch2)
-      val (List(branchBind), ident) = extractUnwrap(If(newCond, wrapped1, wrapped2))
-      (condBinds :+ branchBind, ident)
+      extractUnwrap(condBinds, If(newCond, wrapped1, wrapped2))
     
     case _ => (Nil, tree)
   }
 
   /**
-   * Extracts a single `unwrap` invocation.
+   * Takes a list of bindings and a monadic tree, binds the tree to a new identifier and adds
+   * that binding to the list; the tree in the resulting group is just the newly-bound identifier.
    */
-  def extractUnwrap(tree: Tree): BindGroup = {
+  def extractUnwrap(binds: List[Binding], tree: Tree): BindGroup = {
     // TODO make this generate guaranteed collision-free names
     val freshName = newTermName(c.fresh(TMPVAR_PREFIX))
-    (List((freshName, tree)), Ident(freshName))
+    (binds :+ ((freshName, tree)), Ident(freshName))
   }
 
   /**
