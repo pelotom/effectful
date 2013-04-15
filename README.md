@@ -46,13 +46,13 @@ Writing conditional expressions in `for` comprehensions can get hairy fast:
       }
     } yield result
 
-With monad syntax we can write this more naturally as:
+With monad syntax we can write this as:
 
     monadically {
-      if (foo!) 
-        baz(bar!)!
+      if (unwrap(foo)) 
+        unwrap(baz(unwrap(bar)))
       else 
-        boz! * biz!
+        unwrap(unwrap(boz) * unwrap(biz))
     }
 
 ## How it works
