@@ -2,8 +2,6 @@ import language.experimental.macros
 import scala.language.higherKinds
 import scala.reflect.macros.Context
 
-import scalaz._
-
 package object monadsyntax {
   
   private[monadsyntax] val MONADICALLY = "monadically"
