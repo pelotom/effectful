@@ -12,7 +12,7 @@ Monads are sometimes referred to as "programmable semicolons", because they allo
     val foo = monadically(unwrap(List(1,2,3)) + unwrap(List(2,3)) > 4)
     
     // foo == List(false, false, false, true, true, true)
-    
+
 ## Motivation
 
 In Scala we have `for`-comprehensions as an imperative-looking syntax for writing monadic code, e.g.
@@ -60,3 +60,7 @@ With monad syntax we can write this more naturally as:
       else 
         boz! * biz!
     }
+
+## Generalized [`scala.async`](https://github.com/scala/async)
+
+Monad syntax is similar to the idea behind `scala.async`, but generalized to arbitrary monads (not just futures). Here, `monadically` plays a role similar to `async`, and `unwrap` replaces `await`.
