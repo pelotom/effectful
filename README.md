@@ -1,7 +1,7 @@
 # Monad Syntax
 ---
 
-Monads are sometimes referred to as "programmable semicolons", because they allow us to write imperative-looking blocks of code where the "effect" of each statement is determined by the monad in question. Monad syntax allows you to write configurably effectful programs in a more natural style.
+Monads are sometimes referred to as "programmable semicolons", because they allow us to write imperative-looking blocks of code where the "effect" of each statement is determined by the monad in question. Monad syntax allows you to write such configurably effectful programs in a more natural style, by working at the level of _expressions_ rather than statements.
 
 ## Quick Start
 
