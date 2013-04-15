@@ -1,7 +1,18 @@
 # Monad Syntax
+---
 
 Monads are sometimes referred to as "programmable semicolons", because they allow us to write imperative-looking blocks of code where the "effect" of each statement is determined by the monad in question. Monad syntax allows you to write configurably effectful programs in a more natural style.
 
+## Quick Start
+
+    import scalaz._
+    import Scalaz._
+    import monadsyntax._
+    
+    val foo = monadically(unwrap(List(1,2,3)) + unwrap(List(2,3)) > 4)
+    
+    // foo == List(false, false, false, true, true, true)
+    
 ## Motivation
 
 In Scala we have `for`-comprehensions as an imperative-looking syntax for writing monadic code, e.g.
@@ -12,7 +23,7 @@ In Scala we have `for`-comprehensions as an imperative-looking syntax for writin
       z <- baz
     } yield (y, z)
 
-Each monadic assignment `a <- ma` _unwraps_ a value from the monad so that it can be used later in the computation. But this is a little less convenient than one might hope--frequently we would like to make use of an unwrapped monadic value without having to explicitly name it. With monad syntax we can write it _inline_, like so:
+Each monadic assignment `a <- ma` _unwraps_ a pure value `a: A` from a monadic value `ma: M[A]` so that it can be used later in the computation. But this is a little less convenient than one might hope--frequently we would like to make use of an unwrapped value without having to explicitly name it. With monad syntax we can write it _inline_, like so:
 
     monadically { (unwrap(bar(unwrap(foo))), unwrap(baz)) }
 
@@ -20,7 +31,7 @@ or with some extra sugar,
 
     monadically { (bar(foo!)!, baz!) }
 
-where the postfix `!` means `unwrap`. 
+where the postfix `!` means `unwrap`.
 
 ### Conditionals
 
