@@ -1,7 +1,7 @@
 # Monad Syntax
 ---
 
-Monads are sometimes referred to as "programmable semicolons", because they allow us to write imperative-looking blocks of code where the "effect" of each statement is determined by the monad in question. Monad syntax allows you to write such configurably effectful programs in a more natural style, by working at the level of _expressions_ rather than statements.
+Monad syntax is a small macro library that allows you to write monadic code in a more natural style, by embedding effectful expressions in other effectful expressions rather than explicitly naming intermediary results. The idea is similar to that of the [Scala Async](https://github.com/scala/async) library, but generalized to arbitrary monads (not just `Future`).
 
 ## Quick start
 
@@ -75,7 +75,3 @@ monadically {
 Why require `Monad` instead of just using `flatMap`s and `map`s? Unfortunately, `pure` is necessary in order to get certain things to work. In particular, a conditional in which one branch contains calls to `unwrap` but the other doesn't necessitates the use of `pure`.
 
 Scalaz is a fairly heavyweight dependency just to get a `Monad` type class, so that may change in the future.
-
-## Generalized [scala/async](https://github.com/scala/async)
-
-Monad syntax is similar to the idea behind the [scala/async](https://github.com/scala/async) library, but generalized to arbitrary monads (not just futures). Here, `monadically` plays a role similar to `async`, and `unwrap` replaces `await`.
