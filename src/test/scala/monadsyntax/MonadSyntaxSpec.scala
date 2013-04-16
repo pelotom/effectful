@@ -284,4 +284,26 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Option, Int, Int] &&
     test[Option, Int, Boolean]
   }
+  
+  property("mixed constructors with guidance") = {
+    
+    def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
+        monadically[Option, A]((unwrap(Some(a)), unwrap(None))) == None
+      }
+      
+    test[Int] &&
+    test[Boolean] &&
+    test[Char]
+  }
+  
+  property("mixed constructors without guidance") = {
+    
+    def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
+        monadically((unwrap(Some(a)), unwrap(None))) == None
+      }
+      
+    test[Int] &&
+    test[Boolean] &&
+    test[Char]
+  }
 }
