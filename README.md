@@ -43,7 +43,7 @@ Writing conditional expressions in `for` comprehensions can get hairy fast:
 ```scala
 for {
   x <- foo
-  result <- if (x) {
+  result <- if (x > 12) {
     for {
       a1 <- bar
       a2 <- baz(a1)
@@ -61,7 +61,7 @@ With monad syntax we can write this as:
 
 ```scala
 monadically {
-  if (unwrap(foo)) 
+  if (unwrap(foo) > 12) 
     unwrap(baz(unwrap(bar)))
   else 
     unwrap(unwrap(boz) * unwrap(biz))
