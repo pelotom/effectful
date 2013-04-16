@@ -28,8 +28,8 @@ private abstract class Rewriter {
             if (found.isDefined) {
               val tpe = found.get.tpe
               val newTpe = newFound.tpe
-              if (tpe != newTpe)
-                c.abort(arg.pos, s"Cannot mix monads! ($tpe vs. $newTpe)")
+              if (!(tpe =:= newTpe))
+                c.abort(arg.pos, s"Cannot mix monads within a single `$MONADICALLY` block ($tpe vs. $newTpe)")
             } else found = Some(newFound)
         case _ => super.traverse(tree)
       }

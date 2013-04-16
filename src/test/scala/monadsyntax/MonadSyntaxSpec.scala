@@ -23,6 +23,16 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Option, Boolean]
   }
   
+  property("explicit type application") = {
+    def test[A](implicit 
+      a: Arbitrary[A]) = forAll { (a: A) => 
+        List(a) == monadically[List, A](unwrap(List(a)))
+      }
+      
+    test[Int] &&
+    test[Boolean]
+  }
+  
   property("empty block with explicit type params") = {
     def test[M[_], A](implicit 
       m: Monad[M], 
