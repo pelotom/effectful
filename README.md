@@ -8,14 +8,14 @@ Monads are sometimes referred to as "programmable semicolons", because they allo
 ```scala
 import scalaz._
 import Scalaz._
-import monadsyntax.{monadically, unwrap}
+import monadsyntax.{monadically, unwrap => choose}
 
 val xs = List(1,2,3)
-val ys = List(2,3)
+val ys = List(true,false)
 
-val foo = monadically { unwrap(xs) + unwrap(ys) > 4 }
+val foo = monadically { (choose(xs), choose(ys)) }
 
-// foo == List(false, false, false, true, true, true)
+// foo == List((1,true), (1,false), (2,true), (2,false), (3,true), (3,false))
 ```
 
 ## Motivation
@@ -76,6 +76,6 @@ Why require `Monad` instead of just using `flatMap`s and `map`s? Unfortunately, 
 
 Scalaz is a fairly heavyweight dependency just to get a `Monad` type class, so that may change in the future.
 
-## Generalized [async](https://github.com/scala/async)
+## Generalized [scala/async](https://github.com/scala/async)
 
-Monad syntax is similar to the idea behind the Scala `async` library, but generalized to arbitrary monads (not just futures). Here, `monadically` plays a role similar to `async`, and `unwrap` replaces `await`.
+Monad syntax is similar to the idea behind the [scala/async](https://github.com/scala/async) library, but generalized to arbitrary monads (not just futures). Here, `monadically` plays a role similar to `async`, and `unwrap` replaces `await`.
