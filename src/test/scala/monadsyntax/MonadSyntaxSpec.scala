@@ -285,10 +285,10 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Option, Int, Boolean]
   }
   
-  property("mixed constructors with guidance") = {
+  property("inferred monadic type is LUB of unwrap argument types") = {
     
     def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
-        monadically[Option, A]((unwrap(Some(a)), unwrap(None))) == None
+        monadically((unwrap(Some(a)), unwrap(None))) == None
       }
       
     test[Int] &&
@@ -296,10 +296,21 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Char]
   }
   
-  property("mixed constructors without guidance") = {
+  property("constructor type only with guidance") = {
     
     def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
-        monadically((unwrap(Some(a)), unwrap(None))) == None
+        monadically[Option, (A, A)]((unwrap(None), unwrap(None))) == None
+      }
+      
+    test[Int] &&
+    test[Boolean] &&
+    test[Char]
+  }
+  
+  property("infer smallest monadic supertype of LUB of unwrap argument types") = {
+    
+    def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
+        monadically((unwrap(None), unwrap(None))) == None
       }
       
     test[Int] &&
