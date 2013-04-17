@@ -68,10 +68,10 @@ With monad syntax we can write this as:
 
 ```scala
 monadically {
-  if (foo! > 12)
+  if (foo.! > 12)
     baz(bar!)!
   else 
-    (boz! * biz!)!
+    (boz.! * biz.!)
 }
 ```
 
