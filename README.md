@@ -79,4 +79,4 @@ Why require `Monad` instead of just using `flatMap`s and `map`s? Unfortunately, 
 ## Coming soon
 
 * Postfix unwrap operator: `monadically { foo(bar!)! } == monadically { unwrap(foo(unwrap(bar)) }`
-* Support for sequencing effects of for comprehensions?
+* Support for sequencing effects of `for`-comprehensions?
