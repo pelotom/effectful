@@ -18,20 +18,22 @@ private abstract class Rewriter {
 
   val TMPVAR_PREFIX = "$tmc$"
 
-  var mc: MonadContext = {
+  val mc: MonadContext = {
     val tree = c.macroApplication
-    var found: Option[MonadContext] = resolveMonadContext(tree)
+    var found = resolveMonadContext(tree)
     new Traverser() {
-      override def traverse(tree: Tree) = tree match {
-        case Apply(fun, List(arg)) if isUnwrap(fun) =>
-          for (newFound <- resolveMonadContext(arg))
+      override def traverse(tree: Tree) = findUnwrap(tree) match {
+        case Some(arg) =>
+          for (newFound <- resolveMonadContext(arg)) {
             if (found.isDefined) {
               val tpe = found.get.tpe
               val newTpe = newFound.tpe
               if (!(tpe =:= newTpe))
                 c.abort(arg.pos, s"Cannot mix monads within a single `$MONADICALLY` block ($tpe vs. $newTpe)")
             } else found = Some(newFound)
-        case _ => super.traverse(tree)
+          }
+            
+        case None => super.traverse(tree)
       }
     }.traverse(tree)
     if (!found.isDefined)
@@ -77,8 +79,10 @@ private abstract class Rewriter {
   def pkg = rootMirror.staticPackage("monadsyntax").asModule.moduleClass.asType.toType
   def wrapSymbol = pkg.member(newTermName(MONADICALLY))
   def unwrapSymbol = pkg.member(newTermName(UNWRAP))
+  def conversionSymbol = pkg.member(newTermName(MONADIC_TO_WRAPPABLE))
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
+  def isConversion(tree: Tree): Boolean = tree.symbol == conversionSymbol
 
   type Binding = (TermName, Tree)
 
@@ -96,17 +100,12 @@ private abstract class Rewriter {
    * - The new tree still represents an expression of type A
    * - The terms of the bindings represent expressions of type M[A]
    */
-  def extractBindings(tree: Tree): BindGroup = tree match {
-  
+  def extractBindings(tree: Tree): BindGroup = extractUnwrap(tree) getOrElse { tree match {
+    
     case Apply(fun, args) => 
-      if (isUnwrap(fun)) {
-        val (binds, newArg) = extractBindings(args(0))
-        extractUnwrap(binds, newArg)
-      } else {
-        val (funBinds, newFun) = extractBindings(fun)
-        val (argBindss, newArgs) = (args map extractBindings).unzip
-        (funBinds ++ argBindss.flatten, Apply(newFun, newArgs))
-      }
+      val (funBinds, newFun) = extractBindings(fun)
+      val (argBindss, newArgs) = (args map extractBindings).unzip
+      (funBinds ++ argBindss.flatten, Apply(newFun, newArgs))
     
     case Select(tree, name) =>
       val (binds, newTree) = extractBindings(tree)
@@ -134,6 +133,27 @@ private abstract class Rewriter {
       extractUnwrap(objBinds, Match(newObj, wrappedCases))
       
     case _ => (Nil, tree)
+  }}
+  
+  /**
+   * If the given tree represents an application of `unwrap`, either via the static method or the
+   * postfix ops in `Unwrappable`, returns the applicand, i.e. the tree to be unwrapped.
+   */
+  def findUnwrap(tree: Tree): Option[Tree] = tree match {
+    
+    case Apply(fun, List(arg)) 
+      if isUnwrap(fun) => Some(arg)
+        
+    case Select(Apply(fun, List(arg)), op)
+      if isConversion(fun) 
+      && (op == newTermName("unwrap") || op == newTermName("$bang")) => Some(arg)
+        
+    case _ => None
+  }
+
+  def extractUnwrap(tree: Tree): Option[BindGroup] = findUnwrap(tree) map { arg =>
+    val (binds, newArg) = extractBindings(arg)
+    extractUnwrap(binds, newArg)
   }
 
   /**
@@ -165,26 +185,23 @@ private abstract class Rewriter {
    * `M` and determines the `Monad` instance to use. This technique lifted from the scala-idioms 
    * library.
    */
-  def resolveMonadContext(tree: Tree): Option[MonadContext] = tree.tpe match {
-    case TypeRef(_, sym, _) =>
-      if (sym == typeOf[Nothing].typeSymbol)
-        return None
-  
-      val tpe = TypeRef(NoPrefix, sym, Nil)
-
-      val monadTypeRef = TypeRef(NoPrefix, typeOf[Monad[Any]].typeSymbol, List(tpe))
-      val monadInstance = c.inferImplicitValue(monadTypeRef)
-
-      if (monadInstance == EmptyTree)
-        c.abort(tree.pos, s"Unable to find $monadTypeRef instance in implicit scope")
-
-      val pure = Select(monadInstance, newTermName("pure"))
-      val bind = Select(monadInstance, newTermName("bind"))
-
-      Some(MonadContext(tpe, pure, bind))
+  def resolveMonadContext(tree: Tree): Option[MonadContext] = {
+    val sym = tree.tpe.typeSymbol
+    if (sym == typeOf[Nothing].typeSymbol)
+      return None
     
-      case otherTpe => 
-        c.abort(tree.pos, s"Not a monadic type")
+    val tpe = TypeRef(NoPrefix, sym, Nil)
+  
+    val monadTypeRef = typeRef(NoPrefix, typeOf[Monad[Any]].typeSymbol, List(tpe))
+    val monadInstance = c.inferImplicitValue(monadTypeRef)
+  
+    if (monadInstance == EmptyTree)
+      c.abort(tree.pos, s"Unable to find $monadTypeRef instance in implicit scope")
+
+    val pure = Select(monadInstance, newTermName("pure"))
+    val bind = Select(monadInstance, newTermName("bind"))
+
+    Some(MonadContext(tpe, pure, bind))
   }
 
   /**

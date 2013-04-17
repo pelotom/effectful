@@ -1,6 +1,7 @@
 package monadsyntax
 
-import scala.language.higherKinds
+import language.higherKinds
+import language.postfixOps
 
 import scalaz._
 import Scalaz._
@@ -235,14 +236,14 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       at: Arbitrary[M[List[A]]], 
       aa: Arbitrary[M[A]]) = forAll { (matchObj: M[List[A]], ifNil: M[A]) =>
         
-        val value: M[A] = monadically {
+        val value = monadically {
           unwrap(matchObj) match {
             case Nil => unwrap(ifNil)
             case a :: _ => a
           }
         }
         
-        val expected: M[A] = for {
+        val expected = for {
           o <- matchObj
           result <- o match {
             case Nil => ifNil
@@ -255,5 +256,32 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       
     test[List, Int] &&
     test[Option, Boolean]
+  }
+  
+  property("simple postfix unwraps") = {
+    def test[M[_], A](implicit 
+      m: Monad[M], 
+      a: Arbitrary[M[A]]) = forAll { (ma: M[A]) => 
+        ma == monadically(ma.unwrap) && ma == monadically(ma!)
+      }
+      
+    test[List, Int] &&
+    test[List, Boolean] &&
+    test[Option, Int] &&
+    test[Option, Boolean]
+  }
+  
+  property("compound postfix unwraps") = {
+    def test[M[_], A, B](implicit 
+      m: Monad[M], 
+      aa: Arbitrary[M[A]],
+      af: Arbitrary[A => M[B]]) = forAll { (ma: M[A], f: A => M[B]) => 
+        monadically(f(ma!)!) == ma.flatMap(f)
+      }
+      
+    test[List, Int, Int] &&
+    test[List, Int, Boolean] &&
+    test[Option, Int, Int] &&
+    test[Option, Int, Boolean]
   }
 }
