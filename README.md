@@ -8,12 +8,13 @@ Monad syntax is a small macro library that allows you to write monadic code in a
 ```scala
 import scalaz._
 import Scalaz._
-import monadsyntax.{monadically, unwrap => choose}
+import monadsyntax._
+import language.postfixOps
 
 val xs = List(1,2,3)
 val ys = List(true,false)
 
-val foo = monadically { (choose(xs), choose(ys)) }
+val foo = monadically { (xs!, ys!) }
 
 // foo == List((1,true), (1,false), (2,true), (2,false), (3,true), (3,false))
 ```
@@ -34,6 +35,12 @@ Each monadic assignment `a <- ma` _unwraps_ a pure value `a: A` from a monadic v
 
 ```scala
 monadically { (unwrap(bar(unwrap(foo))), unwrap(baz)) }
+```
+
+or using the postfix `unwrap` operator (`!`), simply
+
+```scala
+monadically { (bar(foo!)!, baz!) }
 ```
 
 ### Conditionals
@@ -61,10 +68,10 @@ With monad syntax we can write this as:
 
 ```scala
 monadically {
-  if (unwrap(foo) > 12) 
-    unwrap(baz(unwrap(bar)))
+  if (foo! > 12)
+    baz(bar!)!
   else 
-    unwrap(unwrap(boz) * unwrap(biz))
+    (boz! * biz!)!
 }
 ```
 
@@ -72,11 +79,10 @@ Effectful `match`/`case` expressions are similarly easier to express with monad 
 
 ## How it works
     
-`monadically` demarcates a block of code in which monad syntax will be used. Each invocation of `unwrap` that occurs within such a block seems to take a monadic value of type `M[A]` and return a pure value of type `A`. Of course that's not generally possible with most monads, so something magical must be going on... and in fact it is. Just as `for`-comprehensions transform your code into `flatMap`s and `map`s behind the scenes, `monadically` is a macro which transforms code using `unwrap` into calls to `bind` and `pure` from Scalaz's `Monad` type class. So monad syntax only works with instances of `Monad`.
+`monadically` demarcates a block of code in which monad syntax will be used. Each invocation of `unwrap` / `!` that occurs within such a block seems to take a monadic value of type `M[A]` and return a pure value of type `A`. Of course that's not generally possible with most monads, so something magical must be going on... and in fact it is. Just as `for`-comprehensions transform your code into `flatMap`s and `map`s behind the scenes, `monadically` is a macro which transforms code using `unwrap` into calls to `bind` and `pure` from Scalaz's `Monad` type class. So monad syntax only works with instances of `Monad`.
 
 Why require `Monad` instead of just using `flatMap`s and `map`s? Unfortunately, `pure` is necessary in order to get certain things to work. In particular, a conditional in which one branch contains calls to `unwrap` but the other doesn't necessitates the use of `pure`.
 
 ## Coming soon
 
-* Postfix unwrap operator: `monadically { foo(bar!)! } == monadically { unwrap(foo(unwrap(bar)) }`
-* Support for sequencing effects of `for`-comprehensions?
+* Support for sequencing effects of `for`-comprehensions
