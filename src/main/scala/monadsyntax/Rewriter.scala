@@ -1,10 +1,10 @@
 package monadsyntax
 
 import language.experimental.macros
-import scala.language.higherKinds
-import scala.reflect.macros.Context
-
-import scalaz._
+import language.higherKinds
+import reflect.macros.Context
+import scalaz.Monad
+import Function.unlift
 
 /**
  * Transforms the AST of an argument to `monadically`, rewriting `unwrap` calls
@@ -20,12 +20,13 @@ private abstract class Rewriter {
 
   val mc: MonadContext = {
     val tree = c.macroApplication
-    resolveMonadContext(tree.tpe.typeSymbol) getOrElse inferMonadContextOrFail(tree)
+    resolveMonad(tree.tpe.typeSymbol) getOrElse inferMonadOrFail(tree)
   }
   
-  def inferMonadContextOrFail(tree: Tree): MonadContext = {
+  def inferMonadOrFail(tree: Tree): MonadContext = {
     val unwrapArgTypes = collectUnwrapArgs(tree) map (_.tpe)
-    val mc = resolveMonadContext(lub(unwrapArgTypes).typeSymbol)
+    val lubType = lub(unwrapArgTypes)
+    val mc = resolveMonad(lubType.typeSymbol) orElse (lubType.baseClasses collectFirst (unlift(resolveMonad(_))))
     if (!mc.isDefined) {
       val prefixMsg = "Could not infer the monadic type being used here"
       if (unwrapArgTypes.isEmpty)
@@ -197,7 +198,7 @@ private abstract class Rewriter {
    * instance to use for it, if possible. This technique lifted from the scala-idioms
    * library.
    */
-  def resolveMonadContext(sym: Symbol): Option[MonadContext] = {
+  def resolveMonad(sym: Symbol): Option[MonadContext] = {
     if (sym == typeOf[Nothing].typeSymbol)
       return None
     
