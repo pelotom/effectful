@@ -1,6 +1,6 @@
 scalaVersion := "2.10.0"
 
-organization := "com.pelotom"
+organization := "org.pelotom"
 
 name := "monad-syntax"
 
