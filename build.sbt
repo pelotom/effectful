@@ -4,7 +4,7 @@ organization := "org.pelotom"
 
 name := "monad-syntax"
 
-version := "0.1"
+version := "0.1-SNAPSHOT"
 
 libraryDependencies <++= (scalaVersion) { sv => Seq("org.scala-lang" % "scala-reflect" % sv) }
 
