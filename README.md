@@ -5,6 +5,16 @@ Monad syntax is a small macro library that allows you to write monadic code in a
 
 ## Quick start
 
+This library requires Scala version 2.10.0.
+
+    git clone https://github.com/pelotom/monad-syntax.git
+    cd monad-syntax
+    sbt clean compile test
+
+You can run `sbt package`, which will create a jar file in `target/scala-2.10/`; add this to your classpath and you're ready to go. Alternately, you can run `sbt console` to fire up a Scala REPL with the necessary dependencies loaded.
+
+Write some code using monad syntax:
+
 ```scala
 import scalaz._
 import Scalaz._
@@ -83,6 +93,6 @@ Effectful `match`/`case` expressions are similarly easier to express with monad 
 
 Why require `Monad` instead of just using `flatMap`s and `map`s? Unfortunately, `pure` is necessary in order to get certain things to work. In particular, a conditional in which one branch contains calls to `unwrap` but the other doesn't necessitates the use of `pure`.
 
-## Coming soon
+## Limitations
 
-* Support for sequencing effects of `for`-comprehensions
+Within the lexical scope of a `monadically` block, not all invocations of `unwrap` / `!` are valid; in particular function definitions cannot contain `unwrap` calls currently. Future work will go to supporting `unwrap` within anonymous functions under certain circumstances. When `unwrap` is used in an illegal position, it will be flagged with a deprecation warning (in Scala 2.10.2 this will be an error).
