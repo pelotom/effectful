@@ -113,7 +113,7 @@ private abstract class Rewriter {
    * - The new tree still represents an expression of type A
    * - The terms of the bindings represent expressions of type M[A]
    */
-  def extractBindings(tree: Tree): BindGroup = extractUnwrap(tree) getOrElse { tree match {
+  def extractBindings(tree: Tree): BindGroup = extractUnwrap(tree) orElse extractTraverse(tree) getOrElse { tree match {
     
     case Apply(fun, args) => 
       val (funBinds, newFun) = extractBindings(fun)
@@ -183,6 +183,35 @@ private abstract class Rewriter {
     (binds :+ ((freshName, tree)), Ident(freshName))
   }
 
+  def extractTraverse(tree: Tree): Option[BindGroup] = for {
+    hmc <- matchHofMethodCall(tree)
+    if hmc.method == newTermName("map")
+    if !collectUnwrapArgs(hmc.funBody).isEmpty
+    (objBinds, newObj) = extractBindings(hmc.obj)
+    newApp = Apply(Select(newObj, hmc.method), List(Function(List(hmc.funArg), transform(hmc.funBody))))
+  } yield extractUnwrap(objBinds, Select(newApp, newTermName("sequence")))
+  
+  /**
+   * Attempt to analyze a tree into an object calling a method which takes a single HOF argument, 
+   * ignoring any top-level type applications.
+   */
+  def matchHofMethodCall(tree: Tree): Option[HofMethodCall] = {
+    def matchSelect(tree: Tree): Option[Select] = tree match {
+      case sel: Select => Some(sel)
+      case TypeApply(fun, _) => matchSelect(fun)
+      case _ => None
+    }
+    tree match {
+      case Apply(fun, List(Function(List(funParm), funBody))) => matchSelect(fun) map { case Select(obj, method) =>
+        HofMethodCall(obj, method, funParm, funBody)
+      }
+      case TypeApply(fun, _) => matchHofMethodCall(fun)
+      case _ => None
+    }
+  }
+  
+  case class HofMethodCall(obj: Tree, method: Name, funArg: ValDef, funBody: Tree)
+  
   /**
    * Takes a list of statements, transforms them and then sequences them monadically.
    */
