@@ -120,6 +120,10 @@ private abstract class Rewriter {
       val (argBindss, newArgs) = (args map extractBindings).unzip
       (funBinds ++ argBindss.flatten, Apply(newFun, newArgs))
     
+    case TypeApply(fun, tyArgs) =>
+      val (funBinds, newFun) = extractBindings(fun)
+      (funBinds, TypeApply(newFun, tyArgs))
+    
     case Select(tree, name) =>
       val (binds, newTree) = extractBindings(tree)
       (binds, Select(newTree, name))
