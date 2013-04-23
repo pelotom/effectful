@@ -345,6 +345,19 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Option, List, Boolean, Int]
   }
   
+  property("simple traverse with list") = {
+    def test[M[_], A, B](implicit
+      m: Monad[M],
+      ata: Arbitrary[List[A]],
+      af: Arbitrary[A => M[B]]) = forAll { (ta: List[A], f: A => M[B]) =>
+        val value = monadically { for (a <- ta) yield f(a)! }
+        val expected = ta traverse f
+        value == expected
+      }
+      
+    test[Option, List, Boolean, Int]
+  }
+  
   property("more complex traverse") = {
     def test[M[_], A, B](implicit
       m: Monad[M],
