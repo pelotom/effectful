@@ -318,6 +318,19 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Char]
   }
   
+  property("type application") = {
+    def test[M[_], F[_], A, B](implicit
+      m: Monad[M],
+      app: Applicative[F],
+      ama: Arbitrary[M[A]],
+      afb: Arbitrary[A => B]) = forAll { (ma: M[A], f: A => B) =>
+        monadically(ma.!.pure[F].map(f)) == ma.map(_.pure[F].map(f))
+      }
+
+    test[Option, List, Int, String] &&
+    test[List, Option, Boolean, Char]
+  }
+  
   property("simple traverse") = {
     def test[M[_], T[_], A, B](implicit
       m: Monad[M],
