@@ -7,7 +7,7 @@ package object monadsyntax {
   
   private[monadsyntax] val MONADICALLY = "monadically"
   private[monadsyntax] val UNWRAP = "unwrap"
-  private[monadsyntax] val MONADIC_TO_WRAPPABLE = "monadicToUnwrappable"
+  private[monadsyntax] val MONADIC_TO_UNWRAPPABLE = "monadicToUnwrappable"
   
   def monadically[M[_], A](expr:A): M[A] = macro monadicallyImpl[M, A]
   

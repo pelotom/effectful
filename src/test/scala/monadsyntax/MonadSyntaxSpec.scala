@@ -355,7 +355,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
         value == expected
       }
       
-    test[Option, List, Boolean, Int]
+    test[Option, Boolean, Int]
   }
   
   property("more complex traverse") = {

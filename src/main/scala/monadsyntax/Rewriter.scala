@@ -40,6 +40,25 @@ private abstract class Rewriter {
   }
   
   /**
+   * Strips out implicit conversions and implicit arguments, which complicate the AST and
+   * make it difficult to detect for-comprehensions.
+   */
+  def stripImplicits(tree: Tree): Tree = new Transformer {
+    override def transform(tree: Tree): Tree = {
+      import scala.reflect.internal.Trees
+      val isImplicitConversion = tree.isInstanceOf[Trees#ApplyImplicitView]
+      val hasImplicitArgs = tree.isInstanceOf[Trees#ApplyToImplicitArgs]
+      tree match {
+        case Apply(fun, _)
+          if hasImplicitArgs => transform(fun)
+        case Apply(fun, List(arg))
+          if isImplicitConversion && !isMonadicToUnwrappable(fun) => transform(arg)
+        case _ => super.transform(tree)
+      }
+    }
+  }.transform(tree)
+  
+  /**
    * Collects all arguments of `unwrap` or its postfix equivalents within the given tree.
    */
   def collectUnwrapArgs(tree: Tree): List[Tree] = {
@@ -58,7 +77,9 @@ private abstract class Rewriter {
    * The entry point of the algorithm, the meat of the work is done in `transform`.
    */
   def rewrite(tree: Tree): Tree = {
-    var newTree = c.resetLocalAttrs(tree)
+    var newTree = tree
+    newTree = c.resetLocalAttrs(newTree)
+    newTree = stripImplicits(newTree)
     newTree = transform(newTree)
     // println(show(newTree))
     newTree = c.typeCheck(newTree)//, WildcardType, true)
@@ -92,10 +113,10 @@ private abstract class Rewriter {
   def pkg = rootMirror.staticPackage("monadsyntax").asModule.moduleClass.asType.toType
   def wrapSymbol = pkg.member(newTermName(MONADICALLY))
   def unwrapSymbol = pkg.member(newTermName(UNWRAP))
-  def conversionSymbol = pkg.member(newTermName(MONADIC_TO_WRAPPABLE))
+  def conversionSymbol = pkg.member(newTermName(MONADIC_TO_UNWRAPPABLE))
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
-  def isConversion(tree: Tree): Boolean = tree.symbol == conversionSymbol
+  def isMonadicToUnwrappable(tree: Tree): Boolean = tree.symbol == conversionSymbol
 
   type Binding = (TermName, Tree)
 
@@ -162,7 +183,7 @@ private abstract class Rewriter {
       if isUnwrap(fun) => Some(arg)
         
     case Select(Apply(fun, List(arg)), op)
-      if isConversion(fun) 
+      if isMonadicToUnwrappable(fun)
       && (op == newTermName("unwrap") || op == newTermName("$bang")) => Some(arg)
         
     case _ => None
