@@ -85,7 +85,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
           a <- ma
           b <- mb
         } yield (a, b)
-
+  
         
         value == expected
       }
@@ -326,7 +326,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       afb: Arbitrary[A => B]) = forAll { (ma: M[A], f: A => B) =>
         monadically(ma.!.pure[F].map(f)) == ma.map(_.pure[F].map(f))
       }
-
+  
     test[Option, List, Int, String] &&
     test[List, Option, Boolean, Char]
   }
@@ -358,13 +358,45 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Option, Boolean, Int]
   }
   
-  property("more complex traverse") = {
+  property("simple traverse with multiple effects") = {
+    def test[M[_], T[_], A, B](implicit
+      m: Monad[M],
+      t: Traverse[T],
+      amtma: Arbitrary[M[T[M[A]]]],
+      af: Arbitrary[A => M[B]]) = forAll { (mtma: M[T[M[A]]], f: A => M[B]) =>
+        val value = monadically { for (ma <- mtma.!) yield f(ma!)! }
+        val expected = mtma flatMap (_ traverse (_ flatMap f))
+        value == expected
+      }
+      
+    test[Option, List, Boolean, Int]
+  }
+  
+  property("nested traverse") = {
     def test[M[_], A, B](implicit
       m: Monad[M],
       ata: Arbitrary[List[List[A]]],
       af: Arbitrary[A => M[B]]) = forAll { (tta: List[List[A]], f: A => M[B]) =>
         val value = monadically { for (ta <- tta; a <- ta) yield f(a)! }
         val expected = (for (ta <- tta; a <- ta) yield f(a)).sequence
+        value == expected
+      }
+      
+    test[Option, Boolean, Int]
+  }
+  
+  property("nested traverse with multiple effects") = {
+    type T[A] = List[A]
+    def test[M[_], A, B](implicit
+      m: Monad[M],
+      amtma: Arbitrary[M[T[M[A]]]],
+      amtmb: Arbitrary[M[T[M[B]]]]) = forAll { (mtma: M[T[M[A]]], mtmb: M[T[M[B]]]) =>
+        val value = monadically { for (ma <- mtma.!; mb <- mtmb.!) yield (ma!, mb!) }
+        val expected = mtma >>= { tma =>
+            tma.traverse(ma => (mtmb >>= { tmb =>
+              tmb.traverse(mb => for (a <- ma; b <- mb) yield (a, b))
+          })).map(_.join)
+        }
         value == expected
       }
       

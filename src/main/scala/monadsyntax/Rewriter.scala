@@ -199,18 +199,32 @@ private abstract class Rewriter {
    * that binding to the list; the tree in the resulting group is just the newly-bound identifier.
    */
   def extractUnwrap(binds: List[Binding], tree: Tree): BindGroup = {
-    // TODO make this generate guaranteed collision-free names
-    val freshName = newTermName(c.fresh(TMPVAR_PREFIX))
+    val freshName = getFreshName()
     (binds :+ ((freshName, tree)), Ident(freshName))
   }
 
   def extractTraverse(tree: Tree): Option[BindGroup] = for {
     hmc <- matchHofMethodCall(tree)
-    if hmc.method == newTermName("map")
+    if (hmc.method == newTermName("map") || hmc.method == newTermName("flatMap"))
     if !collectUnwrapArgs(hmc.funBody).isEmpty
     (objBinds, newObj) = extractBindings(hmc.obj)
-    newApp = Apply(Select(newObj, hmc.method), List(Function(List(hmc.funArg), transform(hmc.funBody))))
-  } yield extractUnwrap(objBinds, Select(newApp, newTermName("sequence")))
+    traversed = Apply(Select(newObj, newTermName("traverse")), List(Function(List(hmc.funArg), transform(hmc.funBody))))
+  } yield {
+    if (hmc.method == newTermName("map")) {
+      // `map` is easy, just replace it with `traverse`
+      extractUnwrap(objBinds, traversed)
+    } else {
+      // `x flatMap f` becomes `(x traverse f) map (_.join)`
+      val v = getFreshName()
+      val fParm = ValDef(Modifiers(Flag.PARAM), v, TypeTree(), EmptyTree)
+      val fBody = Select(Ident(v), newTermName("join"))
+      val mapped = Apply(Select(traversed, newTermName("map")), List(Function(List(fParm), fBody)))
+      extractUnwrap(objBinds, mapped)
+    }
+  }
+
+  // TODO make this generate guaranteed collision-free names
+  def getFreshName(): TermName = newTermName(c.fresh(TMPVAR_PREFIX))
   
   /**
    * Attempt to analyze a tree into an object calling a method which takes a single HOF argument, 
