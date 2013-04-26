@@ -2,6 +2,7 @@ package monadsyntax
 
 import language.higherKinds
 import language.postfixOps
+import language.implicitConversions
 
 import scalaz._
 import Scalaz._
@@ -285,39 +286,6 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     test[Option, Int, Boolean]
   }
   
-  property("inferred monadic type is LUB of unwrap argument types") = {
-    
-    def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
-        monadically((unwrap(Some(a)), unwrap(None))) == None
-      }
-      
-    test[Int] &&
-    test[Boolean] &&
-    test[Char]
-  }
-  
-  property("constructor type only with guidance") = {
-    
-    def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
-        monadically[Option, (A, A)]((unwrap(None), unwrap(None))) == None
-      }
-      
-    test[Int] &&
-    test[Boolean] &&
-    test[Char]
-  }
-  
-  property("infer smallest monadic supertype of LUB of unwrap argument types") = {
-    
-    def test[A](implicit aa: Arbitrary[A]) = forAll { (a: A) =>
-        monadically((unwrap(None), unwrap(None))) == None
-      }
-      
-    test[Int] &&
-    test[Boolean] &&
-    test[Char]
-  }
-  
   property("type application") = {
     def test[M[_], F[_], A, B](implicit
       m: Monad[M],
@@ -401,5 +369,23 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       }
       
     test[Option, Boolean, Int]
+  }
+  
+  property("looping with state monad") = {
+    forAll { (n: Int) =>
+      val value = monadically {
+        for (i <- (1 to 20).toList) yield
+          put(get[Int].! * 2 + i).!
+      }.run(n)._1
+      
+      val expected = {
+        var v = n
+        for (i <- 1 to 20)
+          v = v * 2 + i
+        v
+      }
+      
+      value == expected
+    }
   }
 }

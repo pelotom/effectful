@@ -3,7 +3,8 @@ package monadsyntax
 import language.experimental.macros
 import language.higherKinds
 import reflect.macros.Context
-import scalaz.Monad
+import scalaz.{Monad, Unapply}
+import scalaz.std.list.groupWhen
 import Function.unlift
 
 /**
@@ -18,25 +19,26 @@ private abstract class Rewriter {
 
   val TMPVAR_PREFIX = "$tmc$"
 
-  val mc: MonadContext = {
+  val unapplyInstance: Tree = {
     val tree = c.macroApplication
-    resolveMonad(tree.tpe.typeSymbol) getOrElse inferMonadOrFail(tree)
+    resolveUnapply(tree.tpe) getOrElse inferUnapplyOrFail(tree)
   }
   
-  def inferMonadOrFail(tree: Tree): MonadContext = {
-    val unwrapArgTypes = collectUnwrapArgs(tree) map (_.tpe)
-    val lubType = lub(unwrapArgTypes)
-    val mc = resolveMonad(lubType.typeSymbol) orElse (lubType.baseClasses collectFirst (unlift(resolveMonad(_))))
-    if (!mc.isDefined) {
-      val prefixMsg = "Could not infer the monadic type being used here"
-      if (unwrapArgTypes.isEmpty)
-        c.abort(tree.pos, s"${prefixMsg} because $UNWRAP is never used")
-      val distinctTypeNames = unwrapArgTypes.map(_.typeSymbol.name.toString).distinct
-      val plural = if (distinctTypeNames.size == 1) "" else "s"
-      c.abort(tree.pos,
-        s"Could not infer monadic supertype from $UNWRAP argument type${plural} (${distinctTypeNames.mkString(", ")})")
-    }
-    mc.get
+  val unapplyName = newTermName(TMPVAR_PREFIX + "unapply")
+  
+  val monadInstance = getTypeClass(Ident(unapplyName))
+  
+  def inferUnapplyOrFail(tree: Tree): Tree = {
+    val unapplies = collectUnwrapArgs(tree) map (_._2)
+    
+    if (unapplies.isEmpty)
+      c.abort(tree.pos, s"Could not infer the monadic type being used here because $UNWRAP is never used")
+      
+    val instanceTypes = groupWhen(unapplies.map(u => c.typeCheck(getTypeClass(u)).tpe))(_=:=_).map(_(0))
+    if (instanceTypes.size > 1)
+      c.abort(tree.pos, s"Cannot unwrap more than one monadic type in a given $MONADICALLY block")
+
+    unapplies(0)
   }
   
   /**
@@ -50,9 +52,12 @@ private abstract class Rewriter {
       val hasImplicitArgs = tree.isInstanceOf[Trees#ApplyToImplicitArgs]
       tree match {
         case Apply(fun, _)
-          if hasImplicitArgs => transform(fun)
+          if hasImplicitArgs
+          && !isUnwrap(fun)
+          && !isMonadicToUnwrappable(fun) => transform(fun)
         case Apply(fun, List(arg))
-          if isImplicitConversion && !isMonadicToUnwrappable(fun) => transform(arg)
+          if isImplicitConversion
+          && !isMonadicToUnwrappable(fun) => transform(arg)
         case _ => super.transform(tree)
       }
     }
@@ -61,16 +66,21 @@ private abstract class Rewriter {
   /**
    * Collects all arguments of `unwrap` or its postfix equivalents within the given tree.
    */
-  def collectUnwrapArgs(tree: Tree): List[Tree] = {
+  def collectUnwrapArgs(tree: Tree): List[(Tree, Tree)] = {
     import scala.collection.mutable.ListBuffer
-    val buf: ListBuffer[Tree] = ListBuffer()
+    val buf: ListBuffer[(Tree, Tree)] = ListBuffer()
     new Traverser() {
-      override def traverse(tree: Tree) = getUnwrapArg(tree) match {
-        case Some(arg) => buf += arg
+      override def traverse(tree: Tree) = getUnwrapArgs(tree) match {
+        case Some(args) => buf += args
         case None => super.traverse(tree)
       }
     }.traverse(tree)
     buf.toList
+  }
+
+  def addUnapplyToScope(tree: Tree) = {
+    val unapplyDecl = ValDef(Modifiers(), unapplyName, TypeTree(), unapplyInstance)
+    Block(List(unapplyDecl), tree)
   }
 
   /**
@@ -81,6 +91,7 @@ private abstract class Rewriter {
     newTree = c.resetLocalAttrs(newTree)
     newTree = stripImplicits(newTree)
     newTree = transform(newTree)
+    newTree = addUnapplyToScope(newTree)
     // println(show(newTree))
     newTree = c.typeCheck(newTree)//, WildcardType, true)
     val TypeRef(pre, sym, args) = c.macroApplication.tpe
@@ -100,13 +111,13 @@ private abstract class Rewriter {
   def transform(group: BindGroup, isPure: Boolean = true): Tree = group match { case(binds, tree) =>
     binds match {
       case Nil => 
-        if (isPure) Apply(mc.pure, List(tree)) // make monadic
+        if (isPure) Apply(Select(monadInstance, newTermName("pure")), List(tree)) // make monadic
         else tree
       case (name, unwrappedFrom) :: moreBinds => 
         val innerTree = transform((moreBinds, tree), isPure)
         // q"$unwrappedFrom.flatMap($name => $innerTree)"
         val fun = Function(List(ValDef(Modifiers(Flag.PARAM), name, TypeTree(), EmptyTree)), innerTree)
-        Apply(Apply(mc.bind, List(unwrappedFrom)), List(fun))
+        Apply(Apply(Select(monadInstance, newTermName("bind")), List(unwrappedFrom)), List(fun))
     }
   }
 
@@ -177,19 +188,19 @@ private abstract class Rewriter {
    * If the given tree represents an application of `unwrap`, either via the static method or the
    * postfix ops in `Unwrappable`, returns the applicand, i.e. the tree to be unwrapped.
    */
-  def getUnwrapArg(tree: Tree): Option[Tree] = tree match {
+  def getUnwrapArgs(tree: Tree): Option[(Tree, Tree)] = tree match {
     
-    case Apply(fun, List(arg)) 
-      if isUnwrap(fun) => Some(arg)
-        
-    case Select(Apply(fun, List(arg)), op)
+    case Apply(Apply(fun, List(arg)), List(unapply))
+      if isUnwrap(fun) => Some((arg, unapply))
+      
+    case Select(Apply(Apply(fun, List(arg)), List(unapply)), op)
       if isMonadicToUnwrappable(fun)
-      && (op == newTermName("unwrap") || op == newTermName("$bang")) => Some(arg)
+      && (op == newTermName("unwrap") || op == newTermName("$bang")) => Some((arg, unapply))
         
     case _ => None
   }
-
-  def extractUnwrap(tree: Tree): Option[BindGroup] = getUnwrapArg(tree) map { arg =>
+  
+  def extractUnwrap(tree: Tree): Option[BindGroup] = getUnwrapArgs(tree) map { case (arg, _) =>
     val (binds, newArg) = extractBindings(arg)
     extractUnwrap(binds, newArg)
   }
@@ -260,29 +271,20 @@ private abstract class Rewriter {
         else Block(List(newStmt), transform(restGrp, isPure = false))
       (bindings, newBlock)
   }
-
-  /**
-   * Called on a symbol for a monadic type constructor `M[_]`, determines the `Monad` 
-   * instance to use for it, if possible. This technique lifted from the scala-idioms
-   * library.
-   */
-  def resolveMonad(sym: Symbol): Option[MonadContext] = {
-    if (sym == typeOf[Nothing].typeSymbol)
+  
+  def resolveUnapply(tpe: Type): Option[Tree] = {
+    val monadTyCon = typeRef(NoPrefix, typeOf[Monad[Any]].typeSymbol, Nil)
+    val appliedUnapply = typeRef(NoPrefix, typeOf[Unapply[Any, Any]].typeSymbol, List(monadTyCon, tpe))
+    
+    val unapplyInstance = c.inferImplicitValue(appliedUnapply)
+    
+    if (unapplyInstance == EmptyTree)
       return None
     
-    val tpe = TypeRef(NoPrefix, sym, Nil)
-  
-    val monadTypeRef = typeRef(NoPrefix, typeOf[Monad[Any]].typeSymbol, List(tpe))
-    val monadInstance = c.inferImplicitValue(monadTypeRef)
-  
-    if (monadInstance == EmptyTree)
-      return None
-
-    val pure = Select(monadInstance, newTermName("pure"))
-    val bind = Select(monadInstance, newTermName("bind"))
-
-    Some(MonadContext(tpe, pure, bind))
+    Some(unapplyInstance)
   }
+  
+  def getTypeClass(unapplyInstance: Tree): Tree = Select(unapplyInstance, newTermName("TC"))
 
   /**
    * A combination of a type constructor `M[_]` for which there exists a `Monad[M]`, 
