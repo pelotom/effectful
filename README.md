@@ -120,6 +120,8 @@ def fib(n: Int) = monadically {
 // fib(20) ==> List(1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765)
 ```
 
+[Here's an alternate version](https://gist.github.com/pelotom/5474817) of the same function using monad syntax with Scalaz's implementation of the [ST monad](http://www.haskell.org/haskellwiki/Monad/ST).
+
 ## How it works
     
 `monadically` demarcates a block of code in which monad syntax will be used. Each invocation of `unwrap` / `!` that occurs within such a block seems to take a monadic value of type `M[A]` and return a pure value of type `A`. Of course that's not generally possible with most monads, so something magical must be going on... and in fact it is. Just as `for`-comprehensions transform your code into `flatMap`s and `map`s behind the scenes, `monadically` is a macro which transforms code using `unwrap` into calls to `bind` and `pure` from Scalaz's `Monad` type class. So monad syntax only works with instances of `Monad`.
