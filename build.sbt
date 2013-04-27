@@ -8,7 +8,7 @@ version := "0.1-SNAPSHOT"
 
 libraryDependencies <++= (scalaVersion) { sv => Seq("org.scala-lang" % "scala-reflect" % sv) }
 
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "[7,8)"
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.0"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"
 
