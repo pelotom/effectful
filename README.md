@@ -110,7 +110,7 @@ Similarly, a `for`-comprehension containing `unwrap`s will sequence the effects 
 
 ```scala
 def fib(n: Int) = monadically {
-  for (i <- (1 to n).toList) yield {
+  for (i <- 1 to n toList) yield {
     val x = get[(Int, Int)].! // unfortunately we need to remind `get` what type of state it's dealing with!
     put((x._2, x._1 + x._2)).!
     x._1
