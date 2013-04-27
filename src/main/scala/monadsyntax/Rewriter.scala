@@ -283,6 +283,9 @@ private abstract class Rewriter {
   }
   
   def resolveUnapply(tpe: Type): Option[Tree] = {
+    if (tpe =:= typeOf[Nothing])
+      return None
+    
     val monadTyCon = typeRef(NoPrefix, typeOf[Monad[Any]].typeSymbol, Nil)
     val appliedUnapply = typeRef(NoPrefix, typeOf[Unapply[Any, Any]].typeSymbol, List(monadTyCon, tpe))
     
