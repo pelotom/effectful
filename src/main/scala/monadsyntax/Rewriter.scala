@@ -216,21 +216,31 @@ private abstract class Rewriter {
 
   def extractTraverse(tree: Tree): Option[BindGroup] = for {
     hmc <- matchHofMethodCall(tree)
-    if (hmc.method == newTermName("map") || hmc.method == newTermName("flatMap"))
+    if (hmc.method == newTermName("map") || hmc.method == newTermName("flatMap") || hmc.method == newTermName("foreach"))
     if !collectUnwrapArgs(hmc.funBody).isEmpty
     (objBinds, newObj) = extractBindings(hmc.obj)
     traversed = Apply(Select(newObj, newTermName("traverse")), List(Function(List(hmc.funArg), transform(hmc.funBody))))
   } yield {
-    if (hmc.method == newTermName("map")) {
-      // `map` is easy, just replace it with `traverse`
-      extractUnwrap(objBinds, traversed)
-    } else {
-      // `x flatMap f` becomes `(x traverse f) map (_.join)`
+    
+    def mapTraversedWith(body: TermName => Tree): Tree = {
       val v = getFreshName()
       val fParm = ValDef(Modifiers(Flag.PARAM), v, TypeTree(), EmptyTree)
-      val fBody = Select(Ident(v), newTermName("join"))
-      val mapped = Apply(Select(traversed, newTermName("map")), List(Function(List(fParm), fBody)))
-      extractUnwrap(objBinds, mapped)
+      val fBody = body(v)
+      Apply(Select(traversed, newTermName("map")), List(Function(List(fParm), fBody)))
+    }
+    
+    hmc.method.encoded match {
+      case "map" =>
+        // `map` is easy, just replace it with `traverse`
+        extractUnwrap(objBinds, traversed)
+    
+      case "flatMap" =>
+        // `x flatMap f` becomes `(x traverse f) map (_.join)`
+        extractUnwrap(objBinds, mapTraversedWith(v => Select(Ident(v), newTermName("join"))))
+
+      case "foreach" => 
+        // `x foreach f` becomes `{x traverse f map (_ => ())}`
+        extractUnwrap(objBinds, mapTraversedWith(_ => Literal(Constant())))
     }
   }
 

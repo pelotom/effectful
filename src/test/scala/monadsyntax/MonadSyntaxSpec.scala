@@ -374,14 +374,14 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
   property("looping with state monad") = {
     forAll { (n: Int) =>
       val value = monadically {
-        for (i <- (1 to 20).toList) yield
-          put(get[Int].! * 2 + i).!
+        for (i <- (1 to 20).toList; j <- (1 to i).toList)
+          put(get[Int].! + 2 * i).!
       }.run(n)._1
       
       val expected = {
         var v = n
-        for (i <- 1 to 20)
-          v = v * 2 + i
+        for (i <- 1 to 20; j <- 1 to i)
+          v = v + 2 * i
         v
       }
       
