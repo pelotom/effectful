@@ -1,7 +1,7 @@
 # Monad Syntax
 ---
 
-Monad syntax is a small macro library that allows you to write monadic code in a more natural style, by embedding effectful expressions in other effectful expressions rather than explicitly naming intermediary results. The idea is similar to that of the [Scala Async](https://github.com/scala/async) library, but generalized to arbitrary monads (not just `Future`).
+Monad syntax is a small macro library that allows you to write monadic code in a more natural style than that afforded by `for`-comprehensions, embedding effectful expressions in other effectful expressions rather than explicitly naming intermediary results. The idea is similar to that of the [Scala Async](https://github.com/scala/async) library, but generalized to arbitrary monads (not just `Future`).
 
 ## Quick start
 
