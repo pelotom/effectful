@@ -89,7 +89,7 @@ Effectful `match`/`case` expressions are similarly easier to express with monad 
 
 ### `for`-loops and -comprehensions
 
-We can even `unwrap` monadic values within loops; here's an example using the `State` monad:
+We can even `unwrap` monadic values within loops; here's an example using the [`State` monad](http://www.haskell.org/haskellwiki/State_Monad):
 
 ```scala
 monadically {
@@ -120,7 +120,7 @@ def fib(n: Int) = monadically {
 // fib(20) ==> List(1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765)
 ```
 
-[Here's an alternate version](https://gist.github.com/pelotom/5474817) of the same function using monad syntax with Scalaz's implementation of the [ST monad](http://www.haskell.org/haskellwiki/Monad/ST).
+[Here's an alternate version](https://gist.github.com/pelotom/5474817) of the same function using monad syntax with the [`ST` monad](http://www.haskell.org/haskellwiki/Monad/ST).
 
 ## How it works
     
