@@ -87,12 +87,27 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
           b <- mb
         } yield (a, b)
   
-        
         value == expected
       }
       
     test[List, Int, Char] &&
     test[Option, Boolean, Int]
+  }
+  
+  property("pattern matching val def") = {
+    def test[M[_], A, B](implicit
+      m: Monad[M],
+      a: Arbitrary[M[(A, B)]]) = forAll { (mab: M[(A, B)]) =>
+        val value = monadically {
+          val (a, b) = mab.!
+          (a, b)
+        }
+        
+        value == mab
+      }
+    
+      test[List, Int, Char] &&
+      test[Option, Boolean, Int]
   }
   
   property("homogeneous conditional") = {

@@ -111,9 +111,9 @@ Similarly, a `for`-comprehension containing `unwrap`s will sequence the effects 
 ```scala
 def fib(n: Int) = monadically {
   for (i <- 1 to n toList) yield {
-    val x = get[(Int, Int)].! // unfortunately we need to remind `get` what type of state it's dealing with!
-    put((x._2, x._1 + x._2)).!
-    x._1
+    val (x, y) = get[(Int, Int)].! // unfortunately we need to remind `get` what type of state it's dealing with
+    put((y, x + y)).!
+    x
   }
 } eval (1, 1)
 
@@ -137,4 +137,4 @@ The `flatMap` case implicitly adds the additional requirement that the "iterable
 
 ## Limitations
 
-Within the lexical scope of a `monadically` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap` and `foreach`). Also, not all syntactic forms support `unwrap` that should at the moment. One such example as of this writing is the right-hand side of a `val` assignment which uses pattern-matching (hence the use of `._1`, `._2` in the `fib` example above). When `unwrap` is used in an unsupported position, it will be flagged with a deprecation warning (in Scala 2.10.2 this will be an error).
+Within the lexical scope of a `monadically` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap` and `foreach`). When `unwrap` is used in an unsupported position, it will be flagged with an error, and when used outside of any `monadically` block, it will be flagged with a deprecation warning (in Scala 2.10.2 this will also be an error).
