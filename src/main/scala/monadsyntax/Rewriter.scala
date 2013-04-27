@@ -231,15 +231,15 @@ private abstract class Rewriter {
     
     hmc.method.encoded match {
       case "map" =>
-        // `map` is easy, just replace it with `traverse`
+        // `t map (x => ...)` becomes `t traverse (x => monadically { ... })` 
         extractUnwrap(objBinds, traversed)
     
       case "flatMap" =>
-        // `x flatMap f` becomes `(x traverse f) map (_.join)`
+        // `t flatMap (x => ...)` becomes `t traverse (x => monadically { ... }) map (_.join)`
         extractUnwrap(objBinds, mapTraversedWith(v => Select(Ident(v), newTermName("join"))))
 
       case "foreach" => 
-        // `x foreach f` becomes `{x traverse f map (_ => ())}`
+        // `t foreach f` becomes `t traverse (x => monadically { ... }) map (_ => ())`
         extractUnwrap(objBinds, mapTraversedWith(_ => Literal(Constant())))
     }
   }
