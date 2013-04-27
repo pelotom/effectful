@@ -181,9 +181,9 @@ private abstract class Rewriter {
       }
       extractUnwrap(objBinds, Match(newObj, wrappedCases))
       
-    // case Annotated(ann, obj) =>
-    //   val (objBinds, newObj) = extractBindings(obj)
-    //   (objBinds, Annotated(ann, newObj))
+    case Annotated(ann, obj) =>
+      val (objBinds, newObj) = extractBindings(obj)
+      (objBinds, Annotated(ann, newObj))
       
     case Typed(obj, tpt) =>
       val (objBinds, newObj) = extractBindings(obj)
