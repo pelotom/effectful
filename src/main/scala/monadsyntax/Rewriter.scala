@@ -32,11 +32,11 @@ private abstract class Rewriter {
     val unapplies = collectUnwrapArgs(tree) map (_._2)
     
     if (unapplies.isEmpty)
-      c.abort(tree.pos, s"Could not infer the monadic type being used here because $UNWRAP is never used")
+      c.abort(tree.pos, s"could not infer the monadic type being used here because $UNWRAP is never used")
       
     val instanceTypes = groupWhen(unapplies.map(u => c.typeCheck(getTypeClass(u)).tpe))(_=:=_).map(_(0))
     if (instanceTypes.size > 1)
-      c.abort(tree.pos, s"Cannot unwrap more than one monadic type in a given $MONADICALLY block")
+      c.abort(tree.pos, s"cannot unwrap more than one monadic type in a given $MONADICALLY block")
 
     unapplies(0)
   }
@@ -191,7 +191,7 @@ private abstract class Rewriter {
       
     case _ => {
       collectUnwrapArgs(tree) foreach { case (arg, _) =>
-        c.error(arg.pos, "Unwrapping is not currently supported here")
+        c.error(arg.pos, "unwrapping is not currently supported here")
       }
       (Nil, tree)
     }
