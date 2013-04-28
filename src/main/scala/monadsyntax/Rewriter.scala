@@ -252,7 +252,7 @@ private abstract class Rewriter {
         extractUnwrap(objBinds, mapTraversedWith(v => Select(Ident(v), newTermName("join"))))
 
       case "foreach" => 
-        // `t foreach f` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
+        // `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
         extractUnwrap(objBinds, mapTraversedWith(_ => Literal(Constant())))
         
       // TODO handle `withFilter`

@@ -131,7 +131,7 @@ Why require `Monad` instead of just using `flatMap`s and `map`s? Unfortunately, 
 The transformation of `for`-loops and -comprehensions requires that your "iterable" type be an instance of the Scalaz `Traverse` type class. Then, the idea is that "effectful" loops and comprehensions (those which contain `unwrap` invocations) are transformed in the following way:
  - `t map (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }))` 
  - `t flatMap (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_.join))`
- - `t foreach f` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
+ - `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
  
 The `flatMap` case implicitly adds the additional requirement that the "iterable" type have a `Monad` instance, which it ought to since you're `flatMap`ping it!
 
