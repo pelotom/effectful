@@ -134,7 +134,7 @@ The transformation of `for`-loops and -comprehensions requires that your "iterab
  - `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
  - `t withFilter {x => ...}` becomes `unwrap(t filterM (x => monadically { ... }))`
  
-The `flatMap` case implicitly adds the additional requirement that the "iterable" type have a `Monad` instance, which it ought to since you're `flatMap`ping it! And the `withFilter` case requires that you be traversing a `List`, because that's how `filterM` is defined in Scalaz (if you know of a more generic alternative let me know).
+The `flatMap` case implicitly adds the additional requirement that the "iterable" type have a `Monad` instance, which it ought to since you're `flatMap`ping it! And the `withFilter` case just requires that you be traversing a type which has a `filterM` method with the appropriate type; Scalaz defines this for `List` and, if you `import scalaz.std.indexedSeq.indexedSeqSyntax._`, any subtype of `scala.collection.immutable.IndexedSeq`.
 
 ## Limitations
 
