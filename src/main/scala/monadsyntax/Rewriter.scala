@@ -145,7 +145,7 @@ private abstract class Rewriter {
    * - The new tree still represents an expression of type A
    * - The terms of the bindings represent expressions of type M[A]
    */
-  def extractBindings(tree: Tree): BindGroup = extractUnwrap(tree) orElse extractTraverse(tree) getOrElse { tree match {
+  def extractBindings(tree: Tree): BindGroup = extractUnwrap(tree) orElse extractHofCall(tree) getOrElse { tree match {
     
     case Apply(fun, args) => 
       val (funBinds, newFun) = extractBindings(fun)
@@ -227,71 +227,71 @@ private abstract class Rewriter {
     (binds :+ ((freshName, tree)), Ident(freshName))
   }
 
-  def extractTraverse(tree: Tree): Option[BindGroup] = for {
-    hmc <- matchHofMethodCall(tree)
-    method = hmc.method.encoded
-    if List("map", "flatMap", "foreach", "withFilter") contains method // these are the only HOFs we can transform
-    if !collectUnwrapArgs(hmc.funBody).isEmpty // then the "loop" is effectful
-    (objBinds, newObj) = extractBindings(hmc.obj)
-  } yield {
-    
-    def mkFun(fn: Ident => Tree): Function = {
-      val v = getFreshName()
-      val fParm = ValDef(Modifiers(Flag.PARAM), v, TypeTree(), EmptyTree)
-      val fBody = fn(Ident(v))
-      Function(List(fParm), fBody)
-    }
-    
-    def mkHof(obj: Tree, method: String, fun: Function): Tree = Apply(Select(obj, newTermName(method)), List(fun))
-    
-    val xformedHofArg = Function(List(hmc.funArg), transform(hmc.funBody))
-    
-    lazy val traversed = mkHof(newObj, "traverse", xformedHofArg)
-    
-    val hof = method match {
-      case "map" =>
-        // `t map (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }))`
-        traversed
+  /**
+   * If the given tree is an invocation of one of the supported higher-order methods below, applied 
+   * to an anonymous function, transform the function body according to the following plan:
+   *  - `t map (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }))` 
+   *  - `t flatMap (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_.join))`
+   *  - `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
+   *  - `t withFilter {x => ...}` becomes `unwrap(t filterM (x => monadically { ... }))`
+   */
+  def extractHofCall(tree: Tree): Option[BindGroup] = {
   
-      case "flatMap" =>
-        // `t flatMap (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_.join))`
-        mkHof(traversed, "map", mkFun { v => Select(v, newTermName("join")) })
-
-      case "foreach" => 
-        // `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
-        mkHof(traversed, "map", mkFun { _ => Literal(Constant()) })
-        
-      case "withFilter" =>
-        // `t withFilter {x => ...}` becomes `unwrap(t filterM (x => monadically { ... }))`
-        mkHof(newObj, "filterM", xformedHofArg)
+    case class HofCall(obj: Tree, method: Name, funArg: ValDef, funBody: Tree)
+  
+    /**
+     * Attempt to analyze a tree into an object calling a method which takes a single HOF argument, 
+     * ignoring any top-level type applications.
+     */
+    def matchHofCall(tree: Tree): Option[HofCall] = {
+      def matchSelect(tree: Tree): Option[Select] = tree match {
+        case sel: Select => Some(sel)
+        case TypeApply(fun, _) => matchSelect(fun)
+        case _ => None
+      }
+      tree match {
+        case Apply(fun, List(Function(List(funParm), funBody))) => matchSelect(fun) map { case Select(obj, method) =>
+          HofCall(obj, method, funParm, funBody)
+        }
+        case TypeApply(fun, _) => matchHofCall(fun)
+        case _ => None
+      }
     }
     
-    extractUnwrap(objBinds, hof)
+    for {
+      hmc <- matchHofCall(tree)
+      method = hmc.method.encoded
+      if List("map", "flatMap", "foreach", "withFilter") contains method // these are the only HOFs we can transform
+      if !collectUnwrapArgs(hmc.funBody).isEmpty // then the "loop" is effectful
+      (objBinds, newObj) = extractBindings(hmc.obj)
+    } yield {
+    
+      def mkFun(fn: Ident => Tree): Function = {
+        val v = getFreshName()
+        val fParm = ValDef(Modifiers(Flag.PARAM), v, TypeTree(), EmptyTree)
+        val fBody = fn(Ident(v))
+        Function(List(fParm), fBody)
+      }
+    
+      def mkHof(obj: Tree, method: String, fun: Function): Tree = Apply(Select(obj, newTermName(method)), List(fun))
+    
+      val xformedHofArg = Function(List(hmc.funArg), transform(hmc.funBody))
+    
+      lazy val traversed = mkHof(newObj, "traverse", xformedHofArg)
+    
+      val hof = method match {
+        case "map" =>         traversed
+        case "flatMap" =>     mkHof(traversed, "map", mkFun { v => Select(v, newTermName("join")) })
+        case "foreach" =>     mkHof(traversed, "map", mkFun { _ => Literal(Constant()) })
+        case "withFilter" =>  mkHof(newObj, "filterM", xformedHofArg)
+      }
+    
+      extractUnwrap(objBinds, hof)
+    }
   }
   
   // TODO make this generate guaranteed collision-free names
   def getFreshName(): TermName = newTermName(c.fresh(TMPVAR_PREFIX))
-  
-  /**
-   * Attempt to analyze a tree into an object calling a method which takes a single HOF argument, 
-   * ignoring any top-level type applications.
-   */
-  def matchHofMethodCall(tree: Tree): Option[HofMethodCall] = {
-    def matchSelect(tree: Tree): Option[Select] = tree match {
-      case sel: Select => Some(sel)
-      case TypeApply(fun, _) => matchSelect(fun)
-      case _ => None
-    }
-    tree match {
-      case Apply(fun, List(Function(List(funParm), funBody))) => matchSelect(fun) map { case Select(obj, method) =>
-        HofMethodCall(obj, method, funParm, funBody)
-      }
-      case TypeApply(fun, _) => matchHofMethodCall(fun)
-      case _ => None
-    }
-  }
-  
-  case class HofMethodCall(obj: Tree, method: Name, funArg: ValDef, funBody: Tree)
   
   /**
    * Takes a list of statements, transforms them and then sequences them monadically.
