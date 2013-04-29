@@ -5,7 +5,7 @@ Monad syntax is a small macro library that allows you to write monadic code in a
 
 ## Quick start
 
-This library requires Scala version 2.10.0 and [Scalaz](https://github.com/scalaz/scalaz) 7.0.0.
+This library requires Scala 2.10.0 and [Scalaz](https://github.com/scalaz/scalaz) 7.0.0.
 
     git clone https://github.com/pelotom/monad-syntax.git
     cd monad-syntax
