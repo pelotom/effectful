@@ -403,4 +403,24 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       value == expected
     }
   }
+  
+  property("filtered traversal") = {
+    type T[A] = List[A]
+    def test[M[_], A, B](implicit
+      m: Monad[M],
+      a1: Arbitrary[T[M[T[M[A]]]]],
+      a2: Arbitrary[T[M[A]] => Boolean],
+      a3: Arbitrary[A => Boolean],
+      a4: Arbitrary[A => B]) = forAll { (xss: T[M[T[M[A]]]], ptma: T[M[A]] => Boolean, pa: A => Boolean, f: A => B) =>
+        
+        val value = monadically { for (xs <- xss; if ptma(xs!); x <- xs!; if pa(x!)) yield f(x!) }
+        
+        val expected = xss.filterM(_ map ptma) >>=
+          (_ traverse (_ >>= (_.filterM(_ map pa)) >>= (_ traverse (_ map f))) map (_.join))
+        
+        value == expected
+      }
+      
+    test[Option, Int, Int]
+  }
 }

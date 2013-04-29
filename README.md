@@ -132,9 +132,10 @@ The transformation of `for`-loops and -comprehensions requires that your "iterab
  - `t map (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }))` 
  - `t flatMap (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_.join))`
  - `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
+ - `t withFilter {x => ...}` becomes `unwrap(t filterM (x => monadically { ... }))`
  
-The `flatMap` case implicitly adds the additional requirement that the "iterable" type have a `Monad` instance, which it ought to since you're `flatMap`ping it!
+The `flatMap` case implicitly adds the additional requirement that the "iterable" type have a `Monad` instance, which it ought to since you're `flatMap`ping it! And the `withFilter` case requires that you be traversing a `List`, because that's how `filterM` is defined in Scalaz (if you know of a more generic alternative let me know).
 
 ## Limitations
 
-Within the lexical scope of a `monadically` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap` and `foreach`). When `unwrap` is used in an unsupported position, it will be flagged with an error, and when used outside of any `monadically` block, it will be flagged with a deprecation warning (in Scala 2.10.2 this will also be an error).
+Within the lexical scope of a `monadically` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap`, `foreach` and `withFilter`). When `unwrap` is used in an unsupported position, it will be flagged with an error, and when used outside of any `monadically` block, it will be flagged with a deprecation warning (in Scala 2.10.2 this will also be an error).

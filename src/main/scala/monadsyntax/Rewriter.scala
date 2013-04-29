@@ -229,36 +229,46 @@ private abstract class Rewriter {
 
   def extractTraverse(tree: Tree): Option[BindGroup] = for {
     hmc <- matchHofMethodCall(tree)
-    if (hmc.method == newTermName("map") || hmc.method == newTermName("flatMap") || hmc.method == newTermName("foreach"))
-    if !collectUnwrapArgs(hmc.funBody).isEmpty
+    method = hmc.method.encoded
+    if List("map", "flatMap", "foreach", "withFilter") contains method // these are the only HOFs we can transform
+    if !collectUnwrapArgs(hmc.funBody).isEmpty // then the "loop" is effectful
     (objBinds, newObj) = extractBindings(hmc.obj)
-    traversed = Apply(Select(newObj, newTermName("traverse")), List(Function(List(hmc.funArg), transform(hmc.funBody))))
   } yield {
     
-    def mapTraversedWith(body: TermName => Tree): Tree = {
+    def mkFun(fn: Ident => Tree): Function = {
       val v = getFreshName()
       val fParm = ValDef(Modifiers(Flag.PARAM), v, TypeTree(), EmptyTree)
-      val fBody = body(v)
-      Apply(Select(traversed, newTermName("map")), List(Function(List(fParm), fBody)))
+      val fBody = fn(Ident(v))
+      Function(List(fParm), fBody)
     }
     
-    hmc.method.encoded match {
+    def mkHof(obj: Tree, method: String, fun: Function): Tree = Apply(Select(obj, newTermName(method)), List(fun))
+    
+    val xformedHofArg = Function(List(hmc.funArg), transform(hmc.funBody))
+    
+    lazy val traversed = mkHof(newObj, "traverse", xformedHofArg)
+    
+    val hof = method match {
       case "map" =>
         // `t map (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }))`
-        extractUnwrap(objBinds, traversed)
-    
+        traversed
+  
       case "flatMap" =>
         // `t flatMap (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_.join))`
-        extractUnwrap(objBinds, mapTraversedWith(v => Select(Ident(v), newTermName("join"))))
+        mkHof(traversed, "map", mkFun { v => Select(v, newTermName("join")) })
 
       case "foreach" => 
         // `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
-        extractUnwrap(objBinds, mapTraversedWith(_ => Literal(Constant())))
+        mkHof(traversed, "map", mkFun { _ => Literal(Constant()) })
         
-      // TODO handle `withFilter`
+      case "withFilter" =>
+        // `t withFilter {x => ...}` becomes `unwrap(t filterM (x => monadically { ... }))`
+        mkHof(newObj, "filterM", xformedHofArg)
     }
+    
+    extractUnwrap(objBinds, hof)
   }
-
+  
   // TODO make this generate guaranteed collision-free names
   def getFreshName(): TermName = newTermName(c.fresh(TMPVAR_PREFIX))
   
