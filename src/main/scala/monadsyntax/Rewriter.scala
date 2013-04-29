@@ -323,10 +323,4 @@ private abstract class Rewriter {
   }
   
   def getTypeClass(unapplyInstance: Tree): Tree = Select(unapplyInstance, newTermName("TC"))
-
-  /**
-   * A combination of a type constructor `M[_]` for which there exists a `Monad[M]`, 
-   * along with its associated `pure` and `bind` identifiers.
-   */
-  case class MonadContext(tpe: Type, pure: Tree, bind: Tree)
 }
