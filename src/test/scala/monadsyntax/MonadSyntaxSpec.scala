@@ -1,9 +1,5 @@
 package monadsyntax
 
-import language.higherKinds
-import language.postfixOps
-import language.implicitConversions
-
 import scalaz._
 import Scalaz._
 import std.indexedSeq._
@@ -390,17 +386,16 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
   property("looping with state monad") = {
     forAll { (n: Int) =>
       val value = monadically {
-        for (i <- 1 to 20; j <- 1 to i)
+        for (i <- 1 until 20; j <- 1 to i)
           put(get[Int].! + 2 * i).!
       }.run(n)._1
       
       val expected = {
         var v = n
-        for (i <- 1 to 20; j <- 1 to i)
+        for (i <- 1 until 20; j <- 1 to i)
           v = v + 2 * i
         v
       }
-      
       value == expected
     }
   }
@@ -417,13 +412,12 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
         
         val expected = (xss filter ptma) traverse (_.traverse (_ map f)) map (_.join)
         
-        // value == expected
-        true
+        value == expected
       }
       
     test[Option, Int, Int]
   }
-
+  
   property("traversal with impure filters") = {
     type T[A] = List[A]
     def test[M[_], A, B](implicit
@@ -442,5 +436,13 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       }
       
     test[Option, Int, Int]
+  }
+
+  property("custom traverse type") = {
+    import TestCustomTraverseType._
+    val xs: MyList[Int] = MyCons(1, MyNil())
+    val value = monadically { xs map (_ * Option(4).!) }
+    val expected = xs traverse (x => Option(4) map (y => x * y))
+    value == expected
   }
 }

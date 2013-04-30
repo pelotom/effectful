@@ -1,11 +1,14 @@
 package monadsyntax
 
-import language.experimental.macros
-import language.higherKinds
-import reflect.macros.Context
-import scalaz.{Monad, Unapply}
-import scalaz.std.list.groupWhen
+import scala.language.experimental.macros
+import scala.reflect.macros.Context
+import scala.reflect.ClassTag
+
+import scalaz._
+import Scalaz._
+
 import Function.unlift
+import scala.collection.generic.FilterMonadic
 
 /**
  * Transforms the AST of an argument to `monadically`, rewriting `unwrap` calls
@@ -21,12 +24,12 @@ private abstract class Rewriter {
 
   val unapplyInstance: Tree = {
     val tree = c.macroApplication
-    resolveUnapply(tree.tpe) getOrElse inferUnapplyOrFail(tree)
+    resolveUnapply[Monad[Any]](tree.tpe) getOrElse inferUnapplyOrFail(tree)
   }
   
   val unapplyName = newTermName(TMPVAR_PREFIX + "unapply")
   
-  val monadInstance = getTypeClass(Ident(unapplyName))
+  val monadInstance = getUnapplyTC(Ident(unapplyName))
   
   def inferUnapplyOrFail(tree: Tree): Tree = {
     val unapplies = collectUnwrapArgs(tree) map (_._2)
@@ -34,12 +37,14 @@ private abstract class Rewriter {
     if (unapplies.isEmpty)
       c.abort(tree.pos, s"could not infer the monad in question because $UNWRAP is never used")
       
-    val instanceTypes = groupWhen(unapplies.map(u => c.typeCheck(getTypeClass(u)).tpe))(_=:=_).map(_(0))
+    val instanceTypes = groupWhen(unapplies.map(u => c.typeCheck(getUnapplyTC(u)).tpe))(_=:=_).map(_(0))
     if (instanceTypes.size > 1)
       c.abort(tree.pos, s"cannot unwrap more than one monadic type in a given $MONADICALLY block")
 
     unapplies(0)
   }
+  
+  def getUnapplyTC(unapplyInstance: Tree): Tree = Select(unapplyInstance, newTermName("TC"))
   
   /**
    * Strips out implicit conversions and implicit arguments, which complicate the AST and
@@ -82,14 +87,41 @@ private abstract class Rewriter {
     val unapplyDecl = ValDef(Modifiers(), unapplyName, TypeTree(), unapplyInstance)
     Block(List(unapplyDecl), tree)
   }
+  
+  /**
+   * For relevant trees find type classes their types belong to and attach them for
+   * use during the transformation phase.
+   */
+  def saveOldTree(tree: Tree): Tree = {
+    new Traverser() {
+      override def traverse(tree: Tree) {
+        tree.updateAttachment(OldTree(tree))
+        super.traverse(tree)
+      }
+    }.traverse(tree)
+    c.resetLocalAttrs(tree)
+  }
+  
+  /**
+   * Borrowed from the Scala Async library: copy position & attachments from one
+   * tree to another.
+   */
+  def attachCopy[T <: Tree](orig: Tree, tree: T): tree.type = {
+    tree.setPos(orig.pos)
+    for (att <- orig.attachments.all)
+      tree.updateAttachment[Any](att)(ClassTag.apply[Any](att.getClass))
+    tree
+  }
+  
+  case class OldTree(tree: Tree)
 
   /**
    * The entry point of the algorithm, the meat of the work is done in `transform`.
    */
   def rewrite(tree: Tree): Tree = {
     var newTree = tree
-    newTree = c.resetLocalAttrs(newTree)
     newTree = stripImplicits(newTree)
+    newTree = saveOldTree(newTree)
     newTree = transform(newTree)
     newTree = addUnapplyToScope(newTree)
     // println(show(newTree))
@@ -145,57 +177,59 @@ private abstract class Rewriter {
    * - The new tree still represents an expression of type A
    * - The terms of the bindings represent expressions of type M[A]
    */
-  def extractBindings(tree: Tree): BindGroup = extractUnwrap(tree) orElse extractHofCall(tree) getOrElse { tree match {
+  def extractBindings(tree: Tree): BindGroup = {
+    val (binds, newTree) = extractUnwrap(tree) orElse extractHofCall(tree) getOrElse { tree match {
+      case Apply(fun, args) => 
+        val (funBinds, newFun) = extractBindings(fun)
+        val (argBindss, newArgs) = (args map extractBindings).unzip
+        (funBinds ++ argBindss.flatten, Apply(newFun, newArgs))
     
-    case Apply(fun, args) => 
-      val (funBinds, newFun) = extractBindings(fun)
-      val (argBindss, newArgs) = (args map extractBindings).unzip
-      (funBinds ++ argBindss.flatten, Apply(newFun, newArgs))
+      case TypeApply(fun, tyArgs) =>
+        val (funBinds, newFun) = extractBindings(fun)
+        (funBinds, TypeApply(newFun, tyArgs))
     
-    case TypeApply(fun, tyArgs) =>
-      val (funBinds, newFun) = extractBindings(fun)
-      (funBinds, TypeApply(newFun, tyArgs))
+      case Select(tree, name) =>
+        val (binds, newTree) = extractBindings(tree)
+        (binds, Select(newTree, name))
     
-    case Select(tree, name) =>
-      val (binds, newTree) = extractBindings(tree)
-      (binds, Select(newTree, name))
+      case ValDef(mod, lhs, typ, rhs) =>
+        val (binds, newRhs) = extractBindings(rhs)
+        (binds, ValDef(mod, lhs, typ, newRhs))
     
-    case ValDef(mod, lhs, typ, rhs) =>
-      val (binds, newRhs) = extractBindings(rhs)
-      (binds, ValDef(mod, lhs, typ, newRhs))
-    
-    case Block(stats, expr) => 
-      val (binds, newBlock) = extractBlock(stats :+ expr)
-      extractUnwrap(binds, newBlock)
+      case Block(stats, expr) => 
+        val (binds, newBlock) = extractBlock(stats :+ expr)
+        extractUnwrap(binds, newBlock)
 
-    case If(cond, branch1, branch2) =>
-      val (condBinds, newCond) = extractBindings(cond)
-      val wrapped1 = transform(branch1)
-      val wrapped2 = transform(branch2)
-      extractUnwrap(condBinds, If(newCond, wrapped1, wrapped2))
+      case If(cond, branch1, branch2) =>
+        val (condBinds, newCond) = extractBindings(cond)
+        val wrapped1 = transform(branch1)
+        val wrapped2 = transform(branch2)
+        extractUnwrap(condBinds, If(newCond, wrapped1, wrapped2))
       
-    case Match(obj, cases) =>
-      val (objBinds, newObj) = extractBindings(obj)
-      val wrappedCases = cases map { case CaseDef(pat, guard, body) =>
-        CaseDef(pat, guard, transform(body)) // TODO handle unwraps in guard
+      case Match(obj, cases) =>
+        val (objBinds, newObj) = extractBindings(obj)
+        val wrappedCases = cases map { case cas@CaseDef(pat, guard, body) =>
+          attachCopy(cas, CaseDef(pat, guard, transform(body))) // TODO handle unwraps in guard
+        }
+        extractUnwrap(objBinds, Match(newObj, wrappedCases))
+      
+      case Annotated(ann, obj) =>
+        val (objBinds, newObj) = extractBindings(obj)
+        (objBinds, Annotated(ann, newObj))
+      
+      case Typed(obj, tpt) =>
+        val (objBinds, newObj) = extractBindings(obj)
+        (objBinds, Typed(newObj, tpt))
+      
+      case _ => {
+        collectUnwrapArgs(tree) foreach { case (arg, _) =>
+          c.error(arg.pos, "unwrapping is not currently supported here")
+        }
+        (Nil, tree)
       }
-      extractUnwrap(objBinds, Match(newObj, wrappedCases))
-      
-    case Annotated(ann, obj) =>
-      val (objBinds, newObj) = extractBindings(obj)
-      (objBinds, Annotated(ann, newObj))
-      
-    case Typed(obj, tpt) =>
-      val (objBinds, newObj) = extractBindings(obj)
-      (objBinds, Typed(newObj, tpt))
-      
-    case _ => {
-      collectUnwrapArgs(tree) foreach { case (arg, _) =>
-        c.error(arg.pos, "unwrapping is not currently supported here")
-      }
-      (Nil, tree)
-    }
-  }}
+    }}
+    (binds, attachCopy(tree, newTree))
+  }
   
   /**
    * If the given tree represents an application of `unwrap`, either via the static method or the
@@ -266,14 +300,20 @@ private abstract class Rewriter {
       val fBody = fn(Ident(v))
       Function(List(fParm), fBody)
     }
+
+    def mkMethodCall(obj: Tree, method: String, arg: Tree) = {
+      Apply(Select(obj, newTermName(method)), List(arg))
+    }
     
     /**
-     * If the given tree is a `withFilter` call, change it to `filter`.
+     * If the given tree is a pure `withFilter` call, change it to `filter`. This is to avoid problems due
+     * to the fact that the `FilterMonadic` return type of `withFilter` is not an instance of `Traverse`.
      */
-    def fixFilter(tree: Tree): Tree = (for {
-      hmc <- matchHofCall(tree)
-      if hmc.method == "withFilter"
-    } yield mkHof(hmc.obj, "filter", Function(List(hmc.funArg), hmc.funBody))) getOrElse tree
+    def fixFilter(tree: Tree): Tree = {
+      val changed = for (hmc <- matchHofCall(tree); if hmc.method == "withFilter")
+        yield attachCopy(tree, mkHof(hmc.obj, "filter", Function(List(hmc.funArg), hmc.funBody)))
+      changed getOrElse tree
+    }
     
     for {
       hmc <- matchHofCall(tree)
@@ -282,14 +322,20 @@ private abstract class Rewriter {
       (objBinds, newObj1) = extractBindings(hmc.obj)
       newObj = fixFilter(newObj1)
     } yield {
-      val xformedHofArg = Function(List(hmc.funArg), transform(hmc.funBody))
-      lazy val traversed = mkHof(newObj, "traverse", xformedHofArg)
-    
+      
+      val newHofArg = Function(List(hmc.funArg), transform(hmc.funBody))
+      
+      lazy val traverse = resolveInstanceOrFail[Traverse[Any]](newObj)
+      lazy val travMonad = resolveInstanceOrFail[Monad[Any]](newObj)
+      
+      lazy val traversed = Apply(mkMethodCall(mkMethodCall(traverse, "traversal", monadInstance), "run", newObj), List(newHofArg))
+      lazy val mapped = mkMethodCall(monadInstance, "map", traversed)
+      
       val hof = hmc.method match {
         case "map" =>         traversed
-        case "flatMap" =>     mkHof(traversed, "map", mkFun { v => Select(v, newTermName("join")) })
-        case "foreach" =>     mkHof(traversed, "map", mkFun { _ => Literal(Constant()) })
-        case "withFilter" =>  mkHof(newObj, "filterM", xformedHofArg)
+        case "flatMap" =>     Apply(mapped, List(mkFun { v => mkMethodCall(travMonad, "join", v) }))
+        case "foreach" =>     Apply(mapped, List(mkFun { _ => Literal(Constant()) }))
+        case "withFilter" =>  mkHof(newObj, "filterM", newHofArg)
       }
     
       extractUnwrap(objBinds, hof)
@@ -313,12 +359,12 @@ private abstract class Rewriter {
       (bindings, newBlock)
   }
   
-  def resolveUnapply(tpe: Type): Option[Tree] = {
+  def resolveUnapply[TC : TypeTag](tpe: Type): Option[Tree] = {
     if (tpe =:= typeOf[Nothing])
       return None
     
-    val monadTyCon = typeRef(NoPrefix, typeOf[Monad[Any]].typeSymbol, Nil)
-    val appliedUnapply = typeRef(NoPrefix, typeOf[Unapply[Any, Any]].typeSymbol, List(monadTyCon, tpe))
+    val unappliedTc = typeRef(NoPrefix, typeOf[TC].typeSymbol, Nil)
+    val appliedUnapply = typeRef(NoPrefix, typeOf[Unapply[Any, Any]].typeSymbol, List(unappliedTc, tpe))
     
     val unapplyInstance = c.inferImplicitValue(appliedUnapply)
     
@@ -328,5 +374,70 @@ private abstract class Rewriter {
     Some(unapplyInstance)
   }
   
-  def getTypeClass(unapplyInstance: Tree): Tree = Select(unapplyInstance, newTermName("TC"))
+  /**
+   * Like `resolveInstance`, but fails with a type error instead of returning `None`. Also
+   * acts on a term `Tree` and uses the type of its attachment.
+   */
+  def resolveInstanceOrFail[TC : TypeTag](tree: Tree): Tree = {
+    val oldTree = tree.attachments.get[OldTree]
+    if (!oldTree.isDefined)
+      c.abort(tree.pos, s"no type information could be found for $tree")
+    
+    var tpe = oldTree.get.tree.tpe.widen
+    
+    // the following bit of hairiness is because when we use filtered for-comprehensions,
+    // the type becomes `FilterMonadic[A, B]`, but what we're really dealing with is `B`,
+    // because we either changed the `withFilter` call to `filter` if it was pure, or
+    // to `filterM` if it was effectful.
+    tpe = if (tpe.typeSymbol == typeOf[FilterMonadic[Any, Any]].typeSymbol) {
+      val TypeRef(_, _/*FilterMonadic*/, List(_, realTpe)) = tpe
+      realTpe
+    } else tpe
+    
+    val instance = resolveInstance[TC](tpe)
+    if (!instance.isDefined)
+      c.abort(tree.pos, s"no implicit ${typeOf[TC].typeSymbol.name} instance found for ${tpe.typeSymbol.name}")
+    instance.get
+  }
+
+  /**
+   * Resolve a type class instance for a given type constructor. The `TC` type argument is the
+   * type class' type constructor applied to some type (so that it can have a type tag), e.g.
+   * `Monad[Any]`. The `tpe` argument is the tree for the type constructor for which an instance
+   * of the class is being sought.
+   *
+   * This algorithm searches through the linearized supertypes of the `tpe` argument looking
+   * for an implicit type class instance for each type. It performs better than `resolveUnapply`
+   * in some respects, and worse in others. It is better in that it will find, e.g. a `Monad`
+   * instance for `Some`, but worse in that it will not find an instance for, e.g. `State[A, B]`
+   * because it it is only looking at type constructors of kind `* -> *`. This approach seems
+   * pretty good for looking up `Traverse` instances and `Monad` instances for traversable
+   * types. At some point it might be good to combine the two approaches into one uber type class
+   * inference algorithm that can do everything well.
+   */
+  def resolveInstance[TC : TypeTag](tpe: Type): Option[Tree] = {
+    def resolve(pre: Type)(sym: Symbol): Option[Tree] = {
+      if (sym == typeOf[Nothing].typeSymbol)
+        return None
+      
+      val tyCon = TypeRef(pre, sym, Nil)
+      
+      val reAppliedTc = typeRef(NoPrefix, typeOf[TC].typeSymbol, List(tyCon))
+      val tcInstance = c.inferImplicitValue(reAppliedTc)
+      
+      if (tcInstance == EmptyTree)
+        return None
+    
+      Some(tcInstance)
+    }
+    
+    val (pre, sym) = tpe match {
+      case TypeRef(pre, sym, _) => (pre, sym)
+      case _ => (NoPrefix, tpe.typeSymbol)
+    }
+    
+    val instances = (tpe.typeSymbol :: tpe.baseClasses).toStream collect unlift(resolve(pre) _)
+    
+    return if (instances.isEmpty) None else Option(instances.head)
+  }
 }

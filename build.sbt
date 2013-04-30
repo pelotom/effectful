@@ -14,6 +14,8 @@ libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"
 
 scalacOptions ++= Seq("-deprecation", "-unchecked", "-feature", "-Xlint", "-Xfatal-warnings")
 
+scalacOptions ++= Seq("-language:higherKinds", "-language:postfixOps")
+
 description := "An alternative to for-comprehensions for succinctly specifying monadic computations"
 
 homepage := Some(url("http://github.com/pelotom/monad-syntax"))
