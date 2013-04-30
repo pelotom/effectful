@@ -237,7 +237,7 @@ private abstract class Rewriter {
    */
   def extractHofCall(tree: Tree): Option[BindGroup] = {
   
-    case class HofCall(obj: Tree, method: Name, funArg: ValDef, funBody: Tree)
+    case class HofCall(obj: Tree, method: String, funArg: ValDef, funBody: Tree)
   
     /**
      * Attempt to analyze a tree into an object calling a method which takes a single HOF argument, 
@@ -251,35 +251,41 @@ private abstract class Rewriter {
       }
       tree match {
         case Apply(fun, List(Function(List(funParm), funBody))) => matchSelect(fun) map { case Select(obj, method) =>
-          HofCall(obj, method, funParm, funBody)
+          HofCall(obj, method.encoded, funParm, funBody)
         }
         case TypeApply(fun, _) => matchHofCall(fun)
         case _ => None
       }
     }
     
+    def mkHof(obj: Tree, method: String, fun: Function): Tree = Apply(Select(obj, newTermName(method)), List(fun))
+
+    def mkFun(fn: Ident => Tree): Function = {
+      val v = getFreshName()
+      val fParm = ValDef(Modifiers(Flag.PARAM), v, TypeTree(), EmptyTree)
+      val fBody = fn(Ident(v))
+      Function(List(fParm), fBody)
+    }
+    
+    /**
+     * If the given tree is a `withFilter` call, change it to `filter`.
+     */
+    def fixFilter(tree: Tree): Tree = (for {
+      hmc <- matchHofCall(tree)
+      if hmc.method == "withFilter"
+    } yield mkHof(hmc.obj, "filter", Function(List(hmc.funArg), hmc.funBody))) getOrElse tree
+    
     for {
       hmc <- matchHofCall(tree)
-      method = hmc.method.encoded
-      if List("map", "flatMap", "foreach", "withFilter") contains method // these are the only HOFs we can transform
-      if !collectUnwrapArgs(hmc.funBody).isEmpty // then the "loop" is effectful
-      (objBinds, newObj) = extractBindings(hmc.obj)
+      if List("map", "flatMap", "foreach", "withFilter") contains hmc.method // these are the only HOFs we can transform
+      if !collectUnwrapArgs(hmc.funBody).isEmpty // the HOF is effectful
+      (objBinds, newObj1) = extractBindings(hmc.obj)
+      newObj = fixFilter(newObj1)
     } yield {
-    
-      def mkFun(fn: Ident => Tree): Function = {
-        val v = getFreshName()
-        val fParm = ValDef(Modifiers(Flag.PARAM), v, TypeTree(), EmptyTree)
-        val fBody = fn(Ident(v))
-        Function(List(fParm), fBody)
-      }
-    
-      def mkHof(obj: Tree, method: String, fun: Function): Tree = Apply(Select(obj, newTermName(method)), List(fun))
-    
       val xformedHofArg = Function(List(hmc.funArg), transform(hmc.funBody))
-    
       lazy val traversed = mkHof(newObj, "traverse", xformedHofArg)
     
-      val hof = method match {
+      val hof = hmc.method match {
         case "map" =>         traversed
         case "flatMap" =>     mkHof(traversed, "map", mkFun { v => Select(v, newTermName("join")) })
         case "foreach" =>     mkHof(traversed, "map", mkFun { _ => Literal(Constant()) })

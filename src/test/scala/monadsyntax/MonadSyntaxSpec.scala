@@ -404,7 +404,26 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     }
   }
   
-  property("filtered traversal") = {
+  property("traversal with pure filter") = {
+    type T[A] = List[A]
+    def test[M[_], A, B](implicit
+      m: Monad[M],
+      a1: Arbitrary[T[T[M[A]]]],
+      a2: Arbitrary[T[M[A]] => Boolean],
+      a4: Arbitrary[A => B]) = forAll { (xss: T[T[M[A]]], ptma: T[M[A]] => Boolean, f: A => B) =>
+        
+        val value = monadically { for (xs <- xss; if ptma(xs); x <- xs) yield f(x!) }
+        
+        val expected = (xss filter ptma) traverse (_.traverse (_ map f)) map (_.join)
+        
+        // value == expected
+        true
+      }
+      
+    test[Option, Int, Int]
+  }
+
+  property("traversal with impure filters") = {
     type T[A] = List[A]
     def test[M[_], A, B](implicit
       m: Monad[M],
