@@ -6,6 +6,7 @@ import language.implicitConversions
 
 import scalaz._
 import Scalaz._
+import std.indexedSeq._
 
 import org.scalacheck.{Properties, Arbitrary}
 import org.scalacheck.Prop._
@@ -389,7 +390,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
   property("looping with state monad") = {
     forAll { (n: Int) =>
       val value = monadically {
-        for (i <- 1 to 20 toList; j <- 1 to i toList)
+        for (i <- 1 to 20; j <- 1 to i)
           put(get[Int].! + 2 * i).!
       }.run(n)._1
       
