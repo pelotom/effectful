@@ -1,7 +1,7 @@
 package monadsyntax
 
 import scala.language.experimental.macros
-import scala.reflect.macros.Context
+import scala.reflect.macros.{Context, TypecheckException}
 import scala.reflect.ClassTag
 
 import scalaz._
@@ -120,12 +120,23 @@ private abstract class Rewriter {
    */
   def rewrite(tree: Tree): Tree = {
     var newTree = tree
-    newTree = stripImplicits(newTree)
-    newTree = saveOldTree(newTree)
-    newTree = transform(newTree)
-    newTree = addUnapplyToScope(newTree)
-    // println(show(newTree))
-    newTree = c.typeCheck(newTree)//, WildcardType, true)
+    try {
+      newTree = stripImplicits(newTree)
+      newTree = saveOldTree(newTree)
+      newTree = transform(newTree)
+      newTree = addUnapplyToScope(newTree)
+    } catch {
+      case e: TypecheckException => return tree
+    }
+    
+    try {
+      newTree = c.typeCheck(newTree)//, WildcardType, true)
+    } catch {
+      case e: TypecheckException =>
+        c.abort(e.pos.asInstanceOf[Position], e.msg)
+        return tree
+    }
+    
     val TypeRef(pre, sym, args) = c.macroApplication.tpe
     if (sym == typeOf[Nothing].typeSymbol)
       // fix up type inference

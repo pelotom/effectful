@@ -441,7 +441,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
   property("custom traverse type") = {
     import TestCustomTraverseType._
     val xs: MyList[Int] = MyCons(1, MyNil())
-    val value = monadically { xs map (_ * Option(4).!) }
+    val value = monadically { xs withFilter(_ > 0) map(_ * Option(4).!) }
     val expected = xs traverse (x => Option(4) map (y => x * y))
     value == expected
   }
