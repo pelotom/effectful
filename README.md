@@ -54,7 +54,7 @@ effectfully { (xs!, ys!) }
 
 Here, the "effect" in question is nondeterminism.
 
-## `for`-comprehensions and nested effects
+## Nested effects
 
 In Scala we have `for`-comprehensions as an imperative-looking syntax for writing monadic code, e.g.
 
