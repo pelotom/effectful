@@ -1,6 +1,6 @@
 name := "monad-syntax"
 
-description := "An alternative to for-comprehensions for succinctly specifying monadic computations"
+description := "A syntax for type-safe effectful computations in Scala"
 
 version := "0.1-SNAPSHOT"
 
