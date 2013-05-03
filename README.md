@@ -14,7 +14,7 @@ where `db.lookup` and `db.add` do the obvious side-effectful things of interacti
 ```scala
 for {
   optVal <- db.lookup(key)
-  _ <- optVal map (db.add(key, _)) getOrElse db.noop()
+  _ <- optVal map (db.add(key, _)) getOrElse db.pure(())
 } yield ()
 ```
 But this seems to have lost something of the perspicuity of the original. Effectful lets us write it in the original style but with all effects documented in the type system:
