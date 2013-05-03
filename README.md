@@ -24,7 +24,7 @@ effectfully {
     db.add(key, value).!
 }
 ```
-Notice the use of the postfix `!` operator to indicate where "side effects" are happening.
+Notice the use of the postfix `!` operator to indicate where effects are happening.
 
 ## Quick start
 
