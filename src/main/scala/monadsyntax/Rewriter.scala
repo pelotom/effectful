@@ -345,7 +345,7 @@ private abstract class Rewriter {
       val hof = hmc.method match {
         case "map" =>         traversed
         case "flatMap" =>     Apply(mapped, List(mkFun { v => mkMethodCall(travMonad, "join", v) }))
-        case "foreach" =>     Apply(mapped, List(mkFun { _ => Literal(Constant()) }))
+        case "foreach" =>     Apply(mapped, List(mkFun { _ => Literal(Constant(())) }))
         case "withFilter" =>  mkHof(newObj, "filterM", newHofArg)
       }
     
