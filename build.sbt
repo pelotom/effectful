@@ -1,12 +1,12 @@
-name := "monad-syntax"
+name := "effectful"
 
-description := "An intuitive notation for specifying type-safe effectful computations in Scala"
+description := "A syntax for type-safe effectful computations in Scala"
 
 version := "0.1-SNAPSHOT"
 
-organization := "org.pelotom"
+organization := "org.effectful"
 
-homepage := Some(url("http://github.com/pelotom/monad-syntax"))
+homepage := Some(url("http://github.com/pelotom/effectful"))
 
 startYear := Some(2013)
 

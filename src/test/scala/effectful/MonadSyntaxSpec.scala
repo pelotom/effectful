@@ -1,4 +1,4 @@
-package monadsyntax
+package effectful
 
 import scalaz._
 import Scalaz._
@@ -9,11 +9,11 @@ import org.scalacheck.Prop._
 
 object MonadSyntaxSpec extends Properties("monad-syntax") {
   
-  property("(monadically . unwrap) == id") = {
+  property("(effectfully . unwrap) == id") = {
     def test[M[_], A](implicit 
       m: Monad[M], 
       a: Arbitrary[M[A]]) = forAll { (ma: M[A]) => 
-        ma == monadically(unwrap(ma))
+        ma == effectfully(unwrap(ma))
       }
     // TODO make a meta-QuickCheck that can generate types!
     test[List, Int] &&
@@ -25,7 +25,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
   property("explicit type application") = {
     def test[A](implicit 
       a: Arbitrary[A]) = forAll { (a: A) => 
-        List(a) == monadically[List, A](unwrap(List(a)))
+        List(a) == effectfully[List, A](unwrap(List(a)))
       }
       
     test[Int] &&
@@ -36,7 +36,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     def test[M[_], A](implicit 
       m: Monad[M], 
       a: Arbitrary[A]) = forAll { (x: A) =>
-        x.pure[M] == monadically[M, A](x)
+        x.pure[M] == effectfully[M, A](x)
       }
     
     test[List, Int] &&
@@ -51,7 +51,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       ama: Arbitrary[M[A]], 
       amb: Arbitrary[M[B]]) = forAll { (ma: M[A], mb: M[B]) =>
         
-        val value = monadically {
+        val value = effectfully {
           (unwrap(ma), unwrap(mb))
         }
         
@@ -73,9 +73,9 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       ama: Arbitrary[M[A]], 
       amb: Arbitrary[M[B]]) = forAll { (ma: M[A], mb: M[B]) =>
         
-        val value = monadically {
-          val ma2 = monadically { (); unwrap(ma) }
-          val mb2 = monadically { (); unwrap(mb) }
+        val value = effectfully {
+          val ma2 = effectfully { (); unwrap(ma) }
+          val mb2 = effectfully { (); unwrap(mb) }
           (unwrap(ma2), unwrap(mb2))
         }
         
@@ -95,7 +95,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     def test[M[_], A, B](implicit
       m: Monad[M],
       a: Arbitrary[M[(A, B)]]) = forAll { (mab: M[(A, B)]) =>
-        val value = monadically {
+        val value = effectfully {
           val (a, b) = mab.!
           (a, b)
         }
@@ -113,7 +113,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       at: Arbitrary[M[Boolean]], 
       al: Arbitrary[M[A]]) = forAll { (test: M[Boolean], left: M[A], right: M[A]) =>
         
-        val value = monadically {
+        val value = effectfully {
           if (unwrap(test)) 
             unwrap(left)
           else 
@@ -139,7 +139,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       al: Arbitrary[M[A]],
       ar: Arbitrary[A]) = forAll { (test: M[Boolean], left: M[A], right: A) =>
         
-        val value = monadically {
+        val value = effectfully {
           if (unwrap(test)) 
             unwrap(left)
           else 
@@ -165,7 +165,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       al: Arbitrary[M[A]],
       ar: Arbitrary[A]) = forAll { (test: M[Boolean], left: M[A], result: A) =>
         
-        val value = monadically {
+        val value = effectfully {
           if (unwrap(test)) 
             unwrap(left)
           result
@@ -190,7 +190,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       aa: Arbitrary[A],
       ama: Arbitrary[M[A]]) = forAll { (test1: M[Boolean], choice1: M[A], test2: M[Boolean], choice2: A, choice3: M[A]) =>
         
-        val value = monadically {
+        val value = effectfully {
           if (unwrap(test1)) 
             unwrap(choice1)
           else if (unwrap(test2))
@@ -221,7 +221,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       at: Arbitrary[M[Boolean]], 
       al: Arbitrary[M[A]]) = forAll { (test: M[Boolean], left: M[A], right: M[A]) =>
       
-        val value = monadically {
+        val value = effectfully {
           unwrap { 
             if (unwrap(test)) 
               left
@@ -249,7 +249,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       at: Arbitrary[M[List[A]]], 
       aa: Arbitrary[M[A]]) = forAll { (matchObj: M[List[A]], ifNil: M[A]) =>
         
-        val value = monadically {
+        val value = effectfully {
           unwrap(matchObj) match {
             case Nil => unwrap(ifNil)
             case a :: _ => a
@@ -275,7 +275,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
     def test[M[_], A](implicit 
       m: Monad[M], 
       a: Arbitrary[M[A]]) = forAll { (ma: M[A]) => 
-        ma == monadically(ma.unwrap) && ma == monadically(ma!)
+        ma == effectfully(ma.unwrap) && ma == effectfully(ma!)
       }
       
     test[List, Int] &&
@@ -289,7 +289,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       m: Monad[M], 
       aa: Arbitrary[M[A]],
       af: Arbitrary[A => M[B]]) = forAll { (ma: M[A], f: A => M[B]) => 
-        monadically(f(ma!)!) == ma.flatMap(f)
+        effectfully(f(ma!)!) == ma.flatMap(f)
       }
       
     test[List, Int, Int] &&
@@ -304,7 +304,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       app: Applicative[F],
       ama: Arbitrary[M[A]],
       afb: Arbitrary[A => B]) = forAll { (ma: M[A], f: A => B) =>
-        monadically(ma.!.pure[F].map(f)) == ma.map(_.pure[F].map(f))
+        effectfully(ma.!.pure[F].map(f)) == ma.map(_.pure[F].map(f))
       }
   
     test[Option, List, Int, String] &&
@@ -317,7 +317,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       t: Traverse[T],
       ata: Arbitrary[T[A]],
       af: Arbitrary[A => M[B]]) = forAll { (ta: T[A], f: A => M[B]) =>
-        val value = monadically { for (a <- ta) yield f(a)! }
+        val value = effectfully { for (a <- ta) yield f(a)! }
         val expected = ta traverse f
         value == expected
       }
@@ -330,7 +330,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       m: Monad[M],
       ata: Arbitrary[List[A]],
       af: Arbitrary[A => M[B]]) = forAll { (ta: List[A], f: A => M[B]) =>
-        val value = monadically { for (a <- ta) yield f(a)! }
+        val value = effectfully { for (a <- ta) yield f(a)! }
         val expected = ta traverse f
         value == expected
       }
@@ -344,7 +344,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       t: Traverse[T],
       amtma: Arbitrary[M[T[M[A]]]],
       af: Arbitrary[A => M[B]]) = forAll { (mtma: M[T[M[A]]], f: A => M[B]) =>
-        val value = monadically { for (ma <- mtma.!) yield f(ma!)! }
+        val value = effectfully { for (ma <- mtma.!) yield f(ma!)! }
         val expected = mtma flatMap (_ traverse (_ flatMap f))
         value == expected
       }
@@ -357,7 +357,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       m: Monad[M],
       ata: Arbitrary[List[List[A]]],
       af: Arbitrary[A => M[B]]) = forAll { (tta: List[List[A]], f: A => M[B]) =>
-        val value = monadically { for (ta <- tta; a <- ta) yield f(a)! }
+        val value = effectfully { for (ta <- tta; a <- ta) yield f(a)! }
         val expected = (for (ta <- tta; a <- ta) yield f(a)).sequence
         value == expected
       }
@@ -371,7 +371,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       m: Monad[M],
       amtma: Arbitrary[M[T[M[A]]]],
       amtmb: Arbitrary[M[T[M[B]]]]) = forAll { (mtma: M[T[M[A]]], mtmb: M[T[M[B]]]) =>
-        val value = monadically { for (ma <- mtma.!; mb <- mtmb.!) yield (ma!, mb!) }
+        val value = effectfully { for (ma <- mtma.!; mb <- mtmb.!) yield (ma!, mb!) }
         val expected = mtma >>= { tma =>
             tma.traverse(ma => (mtmb >>= { tmb =>
               tmb.traverse(mb => for (a <- ma; b <- mb) yield (a, b))
@@ -385,7 +385,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
   
   property("looping with state monad") = {
     forAll { (n: Int) =>
-      val value = monadically {
+      val value = effectfully {
         for (i <- 1 until 20; j <- 1 to i)
           put(get[Int].! + 2 * i).!
       }.run(n)._1
@@ -408,7 +408,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       a2: Arbitrary[T[M[A]] => Boolean],
       a4: Arbitrary[A => B]) = forAll { (xss: T[T[M[A]]], ptma: T[M[A]] => Boolean, f: A => B) =>
         
-        val value = monadically { for (xs <- xss; if ptma(xs); x <- xs) yield f(x!) }
+        val value = effectfully { for (xs <- xss; if ptma(xs); x <- xs) yield f(x!) }
         
         val expected = (xss filter ptma) traverse (_.traverse (_ map f)) map (_.join)
         
@@ -427,7 +427,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
       a3: Arbitrary[A => Boolean],
       a4: Arbitrary[A => B]) = forAll { (xss: T[M[T[M[A]]]], ptma: T[M[A]] => Boolean, pa: A => Boolean, f: A => B) =>
         
-        val value = monadically { for (xs <- xss; if ptma(xs!); x <- xs!; if pa(x!)) yield f(x!) }
+        val value = effectfully { for (xs <- xss; if ptma(xs!); x <- xs!; if pa(x!)) yield f(x!) }
         
         val expected = xss.filterM(_ map ptma) >>=
           (_ traverse (_ >>= (_.filterM(_ map pa)) >>= (_ traverse (_ map f))) map (_.join))
@@ -441,7 +441,7 @@ object MonadSyntaxSpec extends Properties("monad-syntax") {
   property("custom traverse type") = {
     import TestCustomTraverseType._
     val xs: MyList[Int] = MyCons(1, MyNil())
-    val value = monadically { xs withFilter(_ > 0) map(_ * Option(4).!) }
+    val value = effectfully { xs withFilter(_ > 0) map(_ * Option(4).!) }
     val expected = xs traverse (x => Option(4) map (y => x * y))
     value == expected
   }

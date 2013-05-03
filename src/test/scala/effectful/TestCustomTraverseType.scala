@@ -1,4 +1,4 @@
-package monadsyntax
+package effectful
 
 import scalaz._
 

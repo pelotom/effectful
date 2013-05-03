@@ -1,4 +1,4 @@
-package monadsyntax
+package effectful
 
 import scala.language.experimental.macros
 import scala.reflect.macros.{Context, TypecheckException}
@@ -11,7 +11,7 @@ import Function.unlift
 import scala.collection.generic.FilterMonadic
 
 /**
- * Transforms the AST of an argument to `monadically`, rewriting `unwrap` calls
+ * Transforms the AST of an argument to `effectfully`, rewriting `unwrap` calls
  * using `>>=` and `pure`. 
  */
 private abstract class Rewriter {
@@ -39,7 +39,7 @@ private abstract class Rewriter {
       
     val instanceTypes = groupWhen(unapplies.map(u => c.typeCheck(getUnapplyTC(u)).tpe))(_=:=_).map(_(0))
     if (instanceTypes.size > 1)
-      c.abort(tree.pos, s"cannot unwrap more than one monadic type in a given $MONADICALLY block")
+      c.abort(tree.pos, s"cannot unwrap more than one monadic type in a given $EFFECTFULLY block")
 
     unapplies(0)
   }
@@ -59,10 +59,10 @@ private abstract class Rewriter {
         case Apply(fun, _)
           if hasImplicitArgs
           && !isUnwrap(fun)
-          && !isMonadicToUnwrappable(fun) => transform(fun)
+          && !isEffectfulToUnwrappable(fun) => transform(fun)
         case Apply(fun, List(arg))
           if isImplicitConversion
-          && !isMonadicToUnwrappable(fun) => transform(arg)
+          && !isEffectfulToUnwrappable(fun) => transform(arg)
         case _ => super.transform(tree)
       }
     }
@@ -146,7 +146,7 @@ private abstract class Rewriter {
 
   /**
    * Takes a tree representing an expression of type `A`, possibly containing `unwrap` calls,
-   * and transforms it into a tree representing an expression of type `M[A]`, using monadic
+   * and transforms it into a tree representing an expression of type `M[A]`, using effectful
    * operations.
    */
   def transform(tree: Tree): Tree = transform(extractBindings(tree))
@@ -154,7 +154,7 @@ private abstract class Rewriter {
   def transform(group: BindGroup, isPure: Boolean = true): Tree = group match { case(binds, tree) =>
     binds match {
       case Nil => 
-        if (isPure) Apply(Select(monadInstance, newTermName("pure")), List(tree)) // make monadic
+        if (isPure) Apply(Select(monadInstance, newTermName("pure")), List(tree)) // make effectful
         else tree
       case (name, unwrappedFrom) :: moreBinds => 
         val innerTree = transform((moreBinds, tree), isPure)
@@ -164,18 +164,18 @@ private abstract class Rewriter {
     }
   }
 
-  def pkg = rootMirror.staticPackage("monadsyntax").asModule.moduleClass.asType.toType
-  def wrapSymbol = pkg.member(newTermName(MONADICALLY))
+  def pkg = rootMirror.staticPackage("effectful").asModule.moduleClass.asType.toType
+  def wrapSymbol = pkg.member(newTermName(EFFECTFULLY))
   def unwrapSymbol = pkg.member(newTermName(UNWRAP))
-  def conversionSymbol = pkg.member(newTermName(MONADIC_TO_UNWRAPPABLE))
+  def conversionSymbol = pkg.member(newTermName(EFFECTFUL_TO_UNWRAPPABLE))
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
-  def isMonadicToUnwrappable(tree: Tree): Boolean = tree.symbol == conversionSymbol
+  def isEffectfulToUnwrappable(tree: Tree): Boolean = tree.symbol == conversionSymbol
 
   type Binding = (TermName, Tree)
 
   /**
-   * A `BindGroup` represents a sequence of monadic bindings and the Tree in which they
+   * A `BindGroup` represents a sequence of effectful bindings and the Tree in which they
    * are to be bound.
    */
   type BindGroup = (List[Binding], Tree)
@@ -252,7 +252,7 @@ private abstract class Rewriter {
       if isUnwrap(fun) => Some((arg, unapply))
       
     case Select(Apply(Apply(fun, List(arg)), List(unapply)), op)
-      if isMonadicToUnwrappable(fun)
+      if isEffectfulToUnwrappable(fun)
       && (op == newTermName("unwrap") || op == newTermName("$bang")) => Some((arg, unapply))
         
     case _ => None
@@ -264,7 +264,7 @@ private abstract class Rewriter {
   }
 
   /**
-   * Takes a list of bindings and a monadic tree, binds the tree to a new identifier and adds
+   * Takes a list of bindings and a effectful tree, binds the tree to a new identifier and adds
    * that binding to the list; the tree in the resulting group is just the newly-bound identifier.
    */
   def extractUnwrap(binds: List[Binding], tree: Tree): BindGroup = {
@@ -275,10 +275,10 @@ private abstract class Rewriter {
   /**
    * If the given tree is an invocation of one of the supported higher-order methods below, applied 
    * to an anonymous function, transform the function body according to the following plan:
-   *  - `t map (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }))` 
-   *  - `t flatMap (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_.join))`
-   *  - `t foreach (x => ...)` becomes `unwrap(t traverse (x => monadically { ... }) map (_ => ()))`
-   *  - `t withFilter {x => ...}` becomes `unwrap(t filterM (x => monadically { ... }))`
+   *  - `t map (x => ...)` becomes `unwrap(t traverse (x => effectfully { ... }))` 
+   *  - `t flatMap (x => ...)` becomes `unwrap(t traverse (x => effectfully { ... }) map (_.join))`
+   *  - `t foreach (x => ...)` becomes `unwrap(t traverse (x => effectfully { ... }) map (_ => ()))`
+   *  - `t withFilter {x => ...}` becomes `unwrap(t filterM (x => effectfully { ... }))`
    */
   def extractHofCall(tree: Tree): Option[BindGroup] = {
   
@@ -357,7 +357,7 @@ private abstract class Rewriter {
   def getFreshName(): TermName = newTermName(c.fresh(TMPVAR_PREFIX))
   
   /**
-   * Takes a list of statements, transforms them and then sequences them monadically.
+   * Takes a list of statements, transforms them and then sequences them effectfully.
    */
   def extractBlock(stmts: List[Tree]): BindGroup = stmts match {
     case expr :: Nil  => (Nil, Block(Nil, transform(expr)))
