@@ -3,6 +3,29 @@
 
 Effectful is a small macro library that allows you to write monadic code in a more natural style than that afforded by `for`-comprehensions, embedding effectful expressions in other effectful expressions rather than explicitly naming intermediate results. The idea is similar to that of the [Scala Async](https://github.com/scala/async) library, but generalized to arbitrary monads (not just `Future`).
 
+## Introduction
+
+The Effectful library provides two basic dual operations: `effectfully: A => M[A]` and `unwrap: M[A] => A`. Intuitively, within an `effectfully` block, we are allowed to treat impure (or *effectful*) values as if they were pure. If you think about it, this is exactly what it's like to program in a standard imperative programming language. For example, take this hypothetical code:
+```scala
+if (!db.lookup(key).isDefined)
+  db.add(key, value);
+```
+where `db.lookup` and `db.add` do the obvious side-effectful things of interacting with a remote database. In order to reify the side-effects of this snippet in the type system, we can define a monad for our database type. Then, in Scala we could write something like this instead:
+```scala
+for {
+  optVal <- db.lookup(key)
+  _ <- optVal map (db.add(key, _)) getOrElse db.noop()
+} yield ()
+```
+But this seems to have lost something of the perspicuity of the original. Effectful lets us write it in the original style but with all effects documented in the type system:
+```scala
+effectfully {
+  if (!db.lookup(key).!.isDefined)
+    db.add(key, value).!
+}
+```
+Notice the use of the postfix `!` operator to indicate where "side effects" are happening.
+
 ## Quick start
 
 This library requires Scala 2.10.0 and [Scalaz](https://github.com/scalaz/scalaz) 7.0.0.
@@ -29,7 +52,9 @@ effectfully { (xs!, ys!) }
 // ==> List((1,true), (1,false), (2,true), (2,false), (3,true), (3,false))
 ```
 
-## Motivation
+Here, the "effect" in question is nondeterminism.
+
+## `for`-comprehensions and nested effects
 
 In Scala we have `for`-comprehensions as an imperative-looking syntax for writing monadic code, e.g.
 
@@ -53,7 +78,7 @@ or using the postfix `unwrap` operator (`!`), simply
 effectfully { (bar(foo!)!, baz!) }
 ```
 
-### Conditionals
+### Effects within conditionals
 
 Writing conditional expressions in `for` comprehensions can get hairy fast:
 
@@ -87,7 +112,7 @@ effectfully {
 
 Monadic `match`/`case` expressions are similarly easier to express with Effectful.
 
-### `for`-loops and -comprehensions
+### Effects within `for`-loops and -comprehensions
 
 We can even `unwrap` monadic values within loops; here's an example using the [`State` monad](http://www.haskell.org/haskellwiki/State_Monad):
 
