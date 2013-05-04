@@ -5,7 +5,7 @@ Effectful is a small macro library that allows you to write monadic code in a mo
 
 ## Introduction
 
-The Effectful library provides two basic dual operations: `effectfully: A => M[A]` and `unwrap: M[A] => A`. Intuitively, within an `effectfully` block, we are allowed to treat impure (or *effectful*) values as if they were pure. If you think about it, this is exactly what it's like to program in a standard imperative programming language. For example, take this hypothetical code:
+The Effectful library provides two basic dual operations: `effectfully: A => M[A]` and `unwrap: M[A] => A` (there is also `!`, a postfix version of `unwrap`). Intuitively, within an `effectfully` block, we are allowed to treat impure (or *effectful*) values as if they were pure. If you think about it, this is exactly what it's like to program in a standard imperative programming language. For example, take this hypothetical code:
 ```scala
 if (!db.lookup(key).isDefined)
   db.add(key, value);
@@ -72,7 +72,7 @@ Each monadic assignment `a <- ma` _unwraps_ a pure value `a: A` from a monadic v
 effectfully { (unwrap(bar(unwrap(foo))), unwrap(baz)) }
 ```
 
-or using the postfix `unwrap` operator (`!`), simply
+or using `!`, simply
 
 ```scala
 effectfully { (bar(foo!)!, baz!) }
