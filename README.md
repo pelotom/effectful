@@ -149,7 +149,7 @@ def fib(n: Int) = effectfully {
 
 ## How it works
     
-`effectfully` demarcates a block of code in which `unwrap` / `!` will be used. Each invocation of `unwrap` / `!` that occurs within such a block seems to take a monadic value of type `M[A]` and return a pure value of type `A`. Of course that's not generally possible with most monads, so something magical must be going on... and in fact it is. Just as `for`-comprehensions transform your code into `flatMap`s and `map`s behind the scenes, `effectfully` is a macro which transforms code using `unwrap` into calls to `bind` and `pure` from Scalaz's `Monad` type class. So Effectful only works with instances of `Monad` (at the moment; there is [a proposal](https://github.com/pelotom/effectful/issues/2) to allow using superclasses of `Monad` where only their limited functionality is needed).
+Just as `for`-comprehensions transform your code into `flatMap`s and `map`s behind the scenes, `effectfully` is a macro which transforms code using `unwrap` into calls to `bind` and `pure` from Scalaz's `Monad` type class. So Effectful only works with instances of `Monad` (at the moment; there is [a proposal](https://github.com/pelotom/effectful/issues/2) to allow using superclasses of `Monad` where only their limited functionality is needed).
 
 The transformation of `for`-loops and -comprehensions requires that your "iterable" type be an instance of the Scalaz `Traverse` type class. Then, the idea is that "effectful" loops and comprehensions (those which contain `unwrap` invocations) are transformed in the following way:
  - `t map (x => ...)` becomes `unwrap(t traverse (x => effectfully { ... }))` 
