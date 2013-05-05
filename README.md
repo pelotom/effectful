@@ -10,7 +10,7 @@ The Effectful library provides two basic dual operations: `effectfully: A => M[A
 if (!db.lookup(key).isDefined)
   db.add(key, value);
 ```
-where `db.lookup` and `db.add` do the obvious side-effectful things of interacting with a remote database. In order to reify the side-effects of this snippet in the type system, we can define a monad for our database type. Then, in Scala we could write something like this instead:
+where `db.lookup` and `db.add` do the obvious side-effectful things of interacting with a remote database. In order to reify the side-effects of this snippet in the type system, we can define a monad for our database type (or just use [`IO`](https://github.com/scalaz/scalaz/blob/scalaz-seven/effect/src/main/scala/scalaz/effect/IO.scala)). Then, in Scala we could write something like this instead:
 ```scala
 for {
   optVal <- db.lookup(key)
