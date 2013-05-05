@@ -1,4 +1,8 @@
 # Effectful
+> If we want to rationalize the notational impact of all these structures, perhaps we should try to recycle the notation we already possess.
+
+\- McBride, Paterson, [_Applicative programming with effects_](http://www.soi.city.ac.uk/~ross/papers/Applicative.html)
+
 ---
 
 Effectful is a small macro library that allows you to write monadic code in a more natural style than that afforded by `for`-comprehensions, embedding effectful expressions in other effectful expressions rather than explicitly naming intermediate results. The idea is similar to that of the [Scala Async](https://github.com/scala/async) library, but generalized to arbitrary monads (not just `Future`).
