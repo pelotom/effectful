@@ -4,7 +4,7 @@ description := "A syntax for type-safe effectful computations in Scala"
 
 version := "0.1-SNAPSHOT"
 
-organization := "org.effectful"
+organization := "org.pelotom"
 
 homepage := Some(url("http://github.com/pelotom/effectful"))
 
