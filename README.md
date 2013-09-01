@@ -32,7 +32,7 @@ Notice the use of the postfix `!` operator to indicate where effects are happeni
 
 ## Quick start
 
-This library requires Scala 2.10.0 and [Scalaz](https://github.com/scalaz/scalaz) 7.0.0.
+This library requires Scala 2.10.2 and [Scalaz](https://github.com/scalaz/scalaz) 7.0.0.
 
     git clone https://github.com/pelotom/effectful.git
     cd effectful
@@ -165,4 +165,4 @@ The `flatMap` case implicitly adds the additional requirement that the "iterable
 
 ## Limitations
 
-Within the lexical scope of a `effectfully` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap`, `foreach` and `withFilter`). When `unwrap` is used in an unsupported position, it will be flagged with an error, and when used outside of any `effectfully` block, it will be flagged with a deprecation warning (in Scala 2.10.2 this will also be an error).
+Within the lexical scope of a `effectfully` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap`, `foreach` and `withFilter`). Also, of course, it makes no sense to use `unwrap` outside of an `effectfully` block. When `unwrap` is used in an unsupported position, it will be flagged with an error.
