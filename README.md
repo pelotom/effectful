@@ -1,5 +1,4 @@
-# Effectful
-[![Build Status](https://secure.travis-ci.org/pelotom/effectful.png)](http://travis-ci.org/pelotom/effectful)
+# Effectful [![Build Status](https://secure.travis-ci.org/pelotom/effectful.png)](http://travis-ci.org/pelotom/effectful)
 > If we want to rationalize the notational impact of all these structures, perhaps we should try to recycle the notation we already possess.
 
 \- McBride, Paterson, [_Applicative programming with effects_](http://www.soi.city.ac.uk/~ross/papers/Applicative.html)
