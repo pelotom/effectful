@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/pelotom/effectful.png)](http://travis-ci.org/pelotom/effectful)
+
 # Effectful
 > If we want to rationalize the notational impact of all these structures, perhaps we should try to recycle the notation we already possess.
 
