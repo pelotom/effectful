@@ -7,7 +7,7 @@ import std.indexedSeq._
 import org.scalacheck.{Properties, Arbitrary}
 import org.scalacheck.Prop._
 
-object MonadSyntaxSpec extends Properties("monad-syntax") {
+object EffectfulSpec extends Properties("effectful") {
   
   property("(effectfully . unwrap) == id") = {
     def test[M[_], A](implicit 
