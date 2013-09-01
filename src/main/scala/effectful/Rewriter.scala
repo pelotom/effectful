@@ -228,9 +228,7 @@ private abstract class Rewriter {
         val (objBinds, newObj) = extractBindings(obj)
         (objBinds, Annotated(ann, newObj))
       
-      case Typed(obj, tpt) =>
-        val (objBinds, newObj) = extractBindings(obj)
-        (objBinds, Typed(newObj, tpt))
+      case Typed(obj, _) => extractBindings(obj)
       
       case _ => {
         collectUnwrapArgs(tree) foreach { case (arg, _) =>
@@ -362,11 +360,18 @@ private abstract class Rewriter {
   def extractBlock(stmts: List[Tree]): BindGroup = stmts match {
     case expr :: Nil  => (Nil, Block(Nil, transform(expr)))
     case stmt :: rest =>
-      val (bindings, newStmt) = extractBindings(stmt)
+      val (bindings, newTree) = extractBindings(stmt)
+      // The newTree might not actually be a statement but just a standalone identifier,
+      // and as of 2.10.2 "pure" expressions in statement position are considered an error,
+      // so we excise them here.
+      var newStmt = List(newTree) filter ({
+        case Ident(_) => false
+        case _ => true
+      })
       val restGrp@(restBindings, Block(restStmts, expr)) = extractBlock(rest)
       val newBlock = 
-        if (restBindings.isEmpty) Block(newStmt :: restStmts, expr)
-        else Block(List(newStmt), transform(restGrp, isPure = false))
+        if (restBindings.isEmpty) Block(newStmt ++ restStmts, expr)
+        else Block(newStmt, transform(restGrp, isPure = false))
       (bindings, newBlock)
   }
   

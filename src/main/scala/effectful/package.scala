@@ -4,6 +4,7 @@ package object effectful {
   import language.higherKinds
   import reflect.macros.Context
   import scalaz.{Monad, Unapply}
+  import scala.reflect.internal.annotations.compileTimeOnly
   
   private[effectful] val EFFECTFULLY = "effectfully"
   private[effectful] val UNWRAP = "unwrap"
@@ -16,7 +17,7 @@ package object effectful {
     c1.Expr(rewriter.rewrite(expr.tree))
   }
   
-  @deprecated(s"Cannot unwrap outside of a `$EFFECTFULLY` block", "0.1")
+  @compileTimeOnly(s"Cannot unwrap outside of a `$EFFECTFULLY` block")
   def unwrap[MA](expr: MA)(implicit u: Unapply[Monad, MA]): u.A = sys.error(s"$UNWRAP was not macro'ed away!")
   
   implicit def effectfulToUnwrappable[MA](ma: MA)(implicit u: Unapply[Monad, MA]): Unwrappable[MA, u.A] = new Unwrappable(ma)
