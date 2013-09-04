@@ -32,15 +32,15 @@ Notice the use of the postfix `!` operator to indicate where effects are happeni
 
 ## Quick start
 
-This library requires Scala 2.10.2 and [Scalaz](https://github.com/scalaz/scalaz) 7.0.0.
+In your `build.sbt`, make sure you are using Scala 2.10.2:
 
-    git clone https://github.com/pelotom/effectful.git
-    cd effectful
-    sbt clean compile test
+    scalaVersion := "2.10.2"
 
-You can run `sbt package`, which will create a jar file in `target/scala-2.10/`; add this to your classpath and you're ready to go. Alternately, you can run `sbt console` to fire up a Scala REPL with the necessary dependencies loaded.
+Then add the following dependency:
 
-Write some code using Effectful:
+    libraryDependencies += "org.pelotom" %% "effectful" % "1.0.0"
+
+Now write some code using Effectful:
 
 ```scala
 import scalaz._
