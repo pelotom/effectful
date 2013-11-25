@@ -191,8 +191,20 @@ private abstract class Rewriter {
   def extractBindings(tree: Tree): BindGroup = {
     val (binds, newTree) = extractUnwrap(tree) orElse extractHofCall(tree) getOrElse { tree match {
       case Apply(fun, args) => 
+        // Compute an array of booleans representing whether or not each formal parameter of this method
+        // is by-name or not. This is ugly as hell, not sure if there's a simpler way to figure this out.
+        var byNames = fun.attachments.get[OldTree].orNull.tree.tpe.asInstanceOf[MethodType].params map {
+          _.typeSignature.asInstanceOf[TypeRef].typeSymbol.asInstanceOf[ClassSymbol].fullName == "scala.<byname>"
+        }
+        
+        // Fill out any varargs as being not by-name
+        byNames ++= List.fill(args.length - byNames.length)(false)
+
         val (funBinds, newFun) = extractBindings(fun)
-        val (argBindss, newArgs) = (args map extractBindings).unzip
+        val (argBindss, newArgs) = ((args, byNames).zipped map { (arg, isByName) =>
+          // Leave by-name arguments alone; we can't safely transform them
+          if (isByName) (Nil, arg) else extractBindings(arg)
+        }).unzip
         (funBinds ++ argBindss.flatten, Apply(newFun, newArgs))
     
       case TypeApply(fun, tyArgs) =>

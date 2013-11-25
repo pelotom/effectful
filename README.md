@@ -165,4 +165,9 @@ The `flatMap` case implicitly adds the additional requirement that the "iterable
 
 ## Limitations
 
-Within the lexical scope of a `effectfully` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap`, `foreach` and `withFilter`). Also, of course, it makes no sense to use `unwrap` outside of an `effectfully` block. When `unwrap` is used in an unsupported position, it will be flagged with an error.
+Within the lexical scope of a `effectfully` block, not all invocations of `unwrap` / `!` are valid; in particular:
+ - Function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap`, `foreach` and `withFilter`).
+ - By-name arguments cannot contain `unwrap` calls; these are essentially the same as function bodies.
+ - It makes no sense to use `unwrap` outside of an `effectfully` block.
+
+When `unwrap` is used in an unsupported position, it will be flagged with an error.
