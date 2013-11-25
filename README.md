@@ -32,15 +32,15 @@ Notice the use of the postfix `!` operator to indicate where effects are happeni
 
 ## Quick start
 
-This library requires Scala 2.10.2 and [Scalaz](https://github.com/scalaz/scalaz) 7.0.0.
+In your `build.sbt`, make sure you are using Scala 2.10.2:
 
-    git clone https://github.com/pelotom/effectful.git
-    cd effectful
-    sbt clean compile test
+    scalaVersion := "2.10.2"
 
-You can run `sbt package`, which will create a jar file in `target/scala-2.10/`; add this to your classpath and you're ready to go. Alternately, you can run `sbt console` to fire up a Scala REPL with the necessary dependencies loaded.
+Then add the following dependency:
 
-Write some code using Effectful:
+    libraryDependencies += "org.pelotom" %% "effectful" % "1.0.0"
+
+Now write some code using Effectful:
 
 ```scala
 import scalaz._
@@ -165,4 +165,9 @@ The `flatMap` case implicitly adds the additional requirement that the "iterable
 
 ## Limitations
 
-Within the lexical scope of a `effectfully` block, not all invocations of `unwrap` / `!` are valid; in particular, function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap`, `foreach` and `withFilter`). Also, of course, it makes no sense to use `unwrap` outside of an `effectfully` block. When `unwrap` is used in an unsupported position, it will be flagged with an error.
+Within the lexical scope of a `effectfully` block, not all invocations of `unwrap` / `!` are valid; in particular:
+ - Function bodies cannot contain `unwrap` calls except in certain limited cases (anonymous functions passed to `map`, `flatMap`, `foreach` and `withFilter`).
+ - By-name arguments cannot contain `unwrap` calls; these are essentially the same as function bodies.
+ - It makes no sense to use `unwrap` outside of an `effectfully` block.
+
+When `unwrap` is used in an unsupported position, it will be flagged with an error.
