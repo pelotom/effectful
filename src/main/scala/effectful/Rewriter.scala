@@ -364,7 +364,7 @@ private abstract class Rewriter {
       // The newTree might not actually be a statement but just a standalone identifier,
       // and as of 2.10.2 "pure" expressions in statement position are considered an error,
       // so we excise them here.
-      var newStmt = List(newTree) filter ({
+      val newStmt = List(newTree) filter ({
         case Ident(_) => false
         case _ => true
       })
