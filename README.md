@@ -34,7 +34,7 @@ Notice the use of the postfix `!` operator to indicate where effects are happeni
 
 In your `build.sbt`, add a dependency like so:
 
-    libraryDependencies += "org.pelotom" %% "effectful" % "1.0.2"
+    libraryDependencies += "org.pelotom" %% "effectful" % "1.0.1"
 
 Now write some code using Effectful:
 
