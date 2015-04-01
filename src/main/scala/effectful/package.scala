@@ -2,7 +2,7 @@ package object effectful {
   import language.experimental.macros
   import language.implicitConversions
   import language.higherKinds
-  import reflect.macros.Context
+  import reflect.macros.blackbox.Context
   import scalaz.{Monad, Unapply}
   import scala.reflect.internal.annotations.compileTimeOnly
   

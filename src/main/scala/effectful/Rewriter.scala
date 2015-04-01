@@ -1,7 +1,8 @@
 package effectful
 
 import scala.language.experimental.macros
-import scala.reflect.macros.{Context, TypecheckException}
+import scala.reflect.macros.TypecheckException
+import scala.reflect.macros.blackbox.Context
 import scala.reflect.ClassTag
 
 import scalaz._
@@ -19,6 +20,7 @@ private abstract class Rewriter {
   val c: Context
 
   import c.universe._
+  import c.internal.{attachments, updateAttachment, setPos, setType, typeRef}
 
   val TMPVAR_PREFIX = "$tmc$"
 
@@ -27,7 +29,7 @@ private abstract class Rewriter {
     resolveUnapply[Monad[Any]](tree.tpe) getOrElse inferUnapplyOrFail(tree)
   }
   
-  val unapplyName = newTermName(TMPVAR_PREFIX + "unapply")
+  val unapplyName = TermName(TMPVAR_PREFIX + "unapply")
   
   val monadInstance = getUnapplyTC(Ident(unapplyName))
   
@@ -37,14 +39,14 @@ private abstract class Rewriter {
     if (unapplies.isEmpty)
       c.abort(tree.pos, s"could not infer the monad in question because $UNWRAP is never used")
       
-    val instanceTypes = groupWhen(unapplies.map(u => c.typeCheck(getUnapplyTC(u)).tpe))(_=:=_).map(_(0))
+    val instanceTypes = groupWhen(unapplies.map(u => c.typecheck(getUnapplyTC(u)).tpe))(_=:=_).map(_(0))
     if (instanceTypes.size > 1)
       c.abort(tree.pos, s"cannot unwrap more than one monadic type in a given $EFFECTFULLY block")
 
     unapplies(0)
   }
   
-  def getUnapplyTC(unapplyInstance: Tree): Tree = Select(unapplyInstance, newTermName("TC"))
+  def getUnapplyTC(unapplyInstance: Tree): Tree = Select(unapplyInstance, TermName("TC"))
   
   /**
    * Strips out implicit conversions and implicit arguments, which complicate the AST and
@@ -95,11 +97,11 @@ private abstract class Rewriter {
   def saveOldTree(tree: Tree): Tree = {
     new Traverser() {
       override def traverse(tree: Tree) {
-        tree.updateAttachment(OldTree(tree))
+        updateAttachment(tree, OldTree(tree))
         super.traverse(tree)
       }
     }.traverse(tree)
-    c.resetLocalAttrs(tree)
+    c.untypecheck(tree)
   }
   
   /**
@@ -107,9 +109,9 @@ private abstract class Rewriter {
    * tree to another.
    */
   def attachCopy[T <: Tree](orig: Tree, tree: T): tree.type = {
-    tree.setPos(orig.pos)
-    for (att <- orig.attachments.all)
-      tree.updateAttachment[Any](att)(ClassTag.apply[Any](att.getClass))
+    setPos(tree, orig.pos)
+    for (att <- attachments(orig).all)
+      updateAttachment[Any](tree, att)(ClassTag.apply[Any](att.getClass))
     tree
   }
   
@@ -130,7 +132,7 @@ private abstract class Rewriter {
     }
     
     try {
-      newTree = c.typeCheck(newTree)//, WildcardType, true)
+      newTree = c.typecheck(newTree)//, WildcardType, true)
     } catch {
       case e: TypecheckException =>
         c.abort(e.pos.asInstanceOf[Position], e.msg)
@@ -140,7 +142,7 @@ private abstract class Rewriter {
     val TypeRef(pre, sym, args) = c.macroApplication.tpe
     if (sym == typeOf[Nothing].typeSymbol)
       // fix up type inference
-      c.macroApplication.setType(newTree.tpe)
+      setType(c.macroApplication, newTree.tpe)
     newTree
   }
 
@@ -154,20 +156,20 @@ private abstract class Rewriter {
   def transform(group: BindGroup, isPure: Boolean = true): Tree = group match { case(binds, tree) =>
     binds match {
       case Nil => 
-        if (isPure) Apply(Select(monadInstance, newTermName("pure")), List(tree)) // make effectful
+        if (isPure) Apply(Select(monadInstance, TermName("pure")), List(tree)) // make effectful
         else tree
       case (name, unwrappedFrom) :: moreBinds => 
         val innerTree = transform((moreBinds, tree), isPure)
         // q"$unwrappedFrom.flatMap($name => $innerTree)"
         val fun = Function(List(ValDef(Modifiers(Flag.PARAM), name, TypeTree(), EmptyTree)), innerTree)
-        Apply(Apply(Select(monadInstance, newTermName("bind")), List(unwrappedFrom)), List(fun))
+        Apply(Apply(Select(monadInstance, TermName("bind")), List(unwrappedFrom)), List(fun))
     }
   }
 
   def pkg = rootMirror.staticPackage("effectful").asModule.moduleClass.asType.toType
-  def wrapSymbol = pkg.member(newTermName(EFFECTFULLY))
-  def unwrapSymbol = pkg.member(newTermName(UNWRAP))
-  def conversionSymbol = pkg.member(newTermName(EFFECTFUL_TO_UNWRAPPABLE))
+  def wrapSymbol = pkg.member(TermName(EFFECTFULLY))
+  def unwrapSymbol = pkg.member(TermName(UNWRAP))
+  def conversionSymbol = pkg.member(TermName(EFFECTFUL_TO_UNWRAPPABLE))
   def isWrap(tree: Tree): Boolean = tree.symbol == wrapSymbol
   def isUnwrap(tree: Tree): Boolean = tree.symbol == unwrapSymbol
   def isEffectfulToUnwrappable(tree: Tree): Boolean = tree.symbol == conversionSymbol
@@ -193,8 +195,8 @@ private abstract class Rewriter {
       case Apply(fun, args) => 
         // Compute an array of booleans representing whether or not each formal parameter of this method
         // is by-name or not. This is ugly as hell, not sure if there's a simpler way to figure this out.
-        var byNames = fun.attachments.get[OldTree].orNull.tree.tpe.asInstanceOf[MethodType].params map {
-          _.typeSignature.asInstanceOf[TypeRef].typeSymbol.asInstanceOf[ClassSymbol].fullName == "scala.<byname>"
+        var byNames = attachments(fun).get[OldTree].orNull.tree.tpe.asInstanceOf[MethodType].params map {
+          _.typeSignature.typeSymbol.fullName == "scala.<byname>"
         }
         
         // Fill out any varargs as being not by-name
@@ -263,7 +265,7 @@ private abstract class Rewriter {
       
     case Select(Apply(Apply(fun, List(arg)), List(unapply)), op)
       if isEffectfulToUnwrappable(fun)
-      && (op == newTermName("unwrap") || op == newTermName("$bang")) => Some((arg, unapply))
+      && (op == TermName("unwrap") || op == TermName("$bang")) => Some((arg, unapply))
         
     case _ => None
   }
@@ -306,14 +308,14 @@ private abstract class Rewriter {
       }
       tree match {
         case Apply(fun, List(Function(List(funParm), funBody))) => matchSelect(fun) map { case Select(obj, method) =>
-          HofCall(obj, method.encoded, funParm, funBody)
+          HofCall(obj, method.encodedName.toString, funParm, funBody)
         }
         case TypeApply(fun, _) => matchHofCall(fun)
         case _ => None
       }
     }
     
-    def mkHof(obj: Tree, method: String, fun: Function): Tree = Apply(Select(obj, newTermName(method)), List(fun))
+    def mkHof(obj: Tree, method: String, fun: Function): Tree = Apply(Select(obj, TermName(method)), List(fun))
 
     def mkFun(fn: Ident => Tree): Function = {
       val v = getFreshName()
@@ -323,7 +325,7 @@ private abstract class Rewriter {
     }
 
     def mkMethodCall(obj: Tree, method: String, arg: Tree) = {
-      Apply(Select(obj, newTermName(method)), List(arg))
+      Apply(Select(obj, TermName(method)), List(arg))
     }
     
     /**
@@ -364,12 +366,12 @@ private abstract class Rewriter {
   }
   
   // TODO make this generate guaranteed collision-free names
-  def getFreshName(): TermName = newTermName(c.fresh(TMPVAR_PREFIX))
+  def getFreshName(): TermName = TermName(c.freshName(TMPVAR_PREFIX))
   
   /**
    * Takes a list of statements, transforms them and then sequences them effectfully.
    */
-  def extractBlock(stmts: List[Tree]): BindGroup = stmts match {
+  def extractBlock(stmts: List[Tree]): BindGroup = (stmts : @unchecked) match {
     case expr :: Nil  => (Nil, Block(Nil, transform(expr)))
     case stmt :: rest =>
       val (bindings, newTree) = extractBindings(stmt)
@@ -407,7 +409,7 @@ private abstract class Rewriter {
    * acts on a term `Tree` and uses the type of its attachment.
    */
   def resolveInstanceOrFail[TC : TypeTag](tree: Tree): Tree = {
-    val oldTree = tree.attachments.get[OldTree]
+    val oldTree = attachments(tree).get[OldTree]
     if (!oldTree.isDefined)
       c.abort(tree.pos, s"no type information could be found for $tree")
     
@@ -448,7 +450,7 @@ private abstract class Rewriter {
       if (sym == typeOf[Nothing].typeSymbol)
         return None
       
-      val tyCon = TypeRef(pre, sym, Nil)
+      val tyCon = typeRef(pre, sym, Nil)
       
       val reAppliedTc = typeRef(NoPrefix, typeOf[TC].typeSymbol, List(tyCon))
       val tcInstance = c.inferImplicitValue(reAppliedTc)

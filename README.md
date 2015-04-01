@@ -32,13 +32,9 @@ Notice the use of the postfix `!` operator to indicate where effects are happeni
 
 ## Quick start
 
-In your `build.sbt`, make sure you are using Scala 2.10.2:
+In your `build.sbt`, add a dependency like so:
 
-    scalaVersion := "2.10.2"
-
-Then add the following dependency:
-
-    libraryDependencies += "org.pelotom" %% "effectful" % "1.0.0"
+    libraryDependencies += "org.pelotom" %% "effectful" % "1.0.2"
 
 Now write some code using Effectful:
 

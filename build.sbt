@@ -2,19 +2,19 @@ name := "effectful"
 
 description := "A syntax for type-safe effectful computations in Scala"
 
-version := "1.1-SNAPSHOT"
+version := "1.0-SNAPSHOT"
 
 organization := "org.pelotom"
 
 startYear := Some(2013)
 
-scalaVersion := "2.10.2"
+scalaVersion := "2.11.5"
 
 libraryDependencies <++= (scalaVersion) { sv => Seq("org.scala-lang" % "scala-reflect" % sv) }
 
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.0"
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.7"
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.2" % "test"
 
 scalacOptions ++= Seq("-deprecation", "-unchecked", "-feature", "-Xlint", "-Xfatal-warnings")
 
