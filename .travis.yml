@@ -1,7 +1,3 @@
  language: scala
  scala:
   - "2.11.5"
- jdk:
-  - openjdk6
-  - openjdk7
-  - oraclejdk7
