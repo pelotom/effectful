@@ -296,7 +296,7 @@ private abstract class Rewriter {
   
     case class HofCall(obj: Tree, method: String, funArg: ValDef, funBody: Tree)
   
-    /**
+    /*
      * Attempt to analyze a tree into an object calling a method which takes a single HOF argument, 
      * ignoring any top-level type applications.
      */
@@ -328,7 +328,7 @@ private abstract class Rewriter {
       Apply(Select(obj, TermName(method)), List(arg))
     }
     
-    /**
+    /*
      * If the given tree is a pure `withFilter` call, change it to `filter`. This is to avoid problems due
      * to the fact that the `FilterMonadic` return type of `withFilter` is not an instance of `Traverse`.
      */
