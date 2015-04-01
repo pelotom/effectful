@@ -2,7 +2,7 @@ name := "effectful"
 
 description := "A syntax for type-safe effectful computations in Scala"
 
-version := "1.0-SNAPSHOT"
+version := "1.0.1"
 
 organization := "org.pelotom"
 
