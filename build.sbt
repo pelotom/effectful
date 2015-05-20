@@ -8,11 +8,11 @@ organization := "org.pelotom"
 
 startYear := Some(2013)
 
-scalaVersion := "2.11.5"
+scalaVersion := "2.11.6"
 
 libraryDependencies <++= (scalaVersion) { sv => Seq("org.scala-lang" % "scala-reflect" % sv) }
 
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.7"
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.2"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.2" % "test"
 

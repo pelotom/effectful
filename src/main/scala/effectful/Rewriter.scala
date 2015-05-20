@@ -39,7 +39,7 @@ private abstract class Rewriter {
     if (unapplies.isEmpty)
       c.abort(tree.pos, s"could not infer the monad in question because $UNWRAP is never used")
       
-    val instanceTypes = groupWhen(unapplies.map(u => c.typecheck(getUnapplyTC(u)).tpe))(_=:=_).map(_(0))
+    val instanceTypes = groupWhen(unapplies.map(u => c.typecheck(getUnapplyTC(u)).tpe))(_=:=_).map(_.head)
     if (instanceTypes.size > 1)
       c.abort(tree.pos, s"cannot unwrap more than one monadic type in a given $EFFECTFULLY block")
 
