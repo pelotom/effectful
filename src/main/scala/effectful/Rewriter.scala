@@ -15,9 +15,7 @@ import scala.collection.generic.FilterMonadic
  * Transforms the AST of an argument to `effectfully`, rewriting `unwrap` calls
  * using `>>=` and `pure`. 
  */
-private abstract class Rewriter {
-
-  val c: Context
+private final class Rewriter[Ctx <: Context](val c: Ctx) {
 
   import c.universe._
   import c.internal.{attachments, updateAttachment, setPos, setType, typeRef}

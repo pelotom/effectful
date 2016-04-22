@@ -13,7 +13,7 @@ package object effectful {
   def effectfully[M[_], A](expr: A): M[A] = macro effectfullyImpl[M, A]
   
   def effectfullyImpl[M[_], A](c1: Context)(expr:c1.Expr[A]): c1.Expr[M[A]] = {
-    val rewriter = new { val c: c1.type = c1 } with Rewriter
+    val rewriter = new Rewriter[c1.type](c1)
     c1.Expr(rewriter.rewrite(expr.tree))
   }
   
